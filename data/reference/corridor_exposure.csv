@@ -1,0 +1,3 @@
+corridor_id,india_share_pct,note,source,verified
+chokepoint6,41.0,"India crude import share via Hormuz, 9M FY2026 (peaked at 53% in Jan 2026 before the closure forced diversification)",Design doc appendix (Wright Research / MoPNG),True
+chokepoint4,,"Not a primary India crude corridor in its own right -- matters here mainly as the discharge point coupling for the Saudi East-West bypass (see bypass_routes.csv). No India-specific flow-share figure in source material.",Not sourced,False

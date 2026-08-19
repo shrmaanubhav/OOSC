@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Project Sentinel — AI-driven energy supply-chain resilience for India"
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=0.124.0",
     "duckdb>=1.5.5",
     "fastapi>=0.141.1",
     "httpx>=0.28.1",
