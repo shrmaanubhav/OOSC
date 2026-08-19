@@ -5,7 +5,7 @@ Full design doc lives in the conversation history that produced this repo (schem
 - [x] **Phase 0** — Repo scaffold (Python via uv, Next.js 15 in `web/`, dir structure, gitignore, PLAN.md, CLAUDE.md)
 - [x] **Phase 1** — PortWatch ingestion (`ingest/portwatch.py`) — no key required. Exit: chokepoint6 collapse table for last 200 days.
 - [~] **Phase 2** — GDELT ingestion (`ingest/gdelt.py`) + hand-built reference CSVs (`data/reference/`) — no key required. Reference CSVs done and validated. GDELT backfill BLOCKED on IP-level rate limiting — see `data/snapshots/gdelt/NOTE.md` for what's missing and how to resume.
-- [ ] **Phase 3** — Event extractor (`agent/extractor.py`) + Corridor Risk Index v1 (`core/risk.py`).
+- [~] **Phase 3** — Event extractor (`agent/extractor.py`) + Corridor Risk Index v1 (`core/risk.py`). Both built and self-checked; CRI verified against real PortWatch O/X data (rises 8→87 across the actual Feb-Mar 2026 collapse). S/E components NaN pending GDELT backfill (Phase 2) and an ANTHROPIC_API_KEY for the extractor. Exit criterion ("S leads O") not yet visually confirmable until GDELT lands.
 - [ ] **Phase 4** — Digital twin (`core/twin.py`) + PPAC PDF parsing (`ingest/ppac.py`).
 - [ ] **Phase 5** — Scenario cascade (`core/scenario.py`), procurement LP (`core/procurement.py`), reserve LP (`core/reserve.py`, thin).
 - [ ] **Phase 6** — Backtest (`core/backtest.py`) + provenance validator (`agent/provenance.py`).
