@@ -1,0 +1,36 @@
+# GDELT DOC 2.0 boolean queries per corridor. Versioned config, not hardcoded
+# in ingest/gdelt.py, so query tuning doesn't require a code change.
+#
+# portid values match the IMF PortWatch chokepoint catalog
+# (data/snapshots/portwatch/chokepoints_catalog.parquet):
+#   chokepoint6 = Strait of Hormuz
+#   chokepoint4 = Bab el-Mandeb Strait
+#
+# backfill_start/backfill_end bound the historical pull for ingest/gdelt.py.
+# GDELT's DOC API keyword index is only reliably deep for ~3 months via the
+# `timespan` shortcut -- everything here uses explicit STARTDATETIME/
+# ENDDATETIME instead, so older windows (Jan-Feb 2026) are still queried
+# directly against the full index rather than assumed to work.
+
+chokepoint6:
+  name: "Strait of Hormuz"
+  query: >
+    ("Strait of Hormuz" OR "Hormuz") AND
+    (tanker OR shipping OR closure OR mine OR missile OR seizure OR
+     "force majeure" OR insurance OR convoy OR escort OR reopen OR truce)
+  backfill_start: "2026-01-01"
+  backfill_end: "2026-08-20"
+  # denser slicing across the acute onset -- escalation moved fast enough
+  # that weekly slices would blow past the 250-record artlist cap
+  dense_window:
+    start: "2026-02-20"
+    end: "2026-03-15"
+
+chokepoint4:
+  name: "Bab el-Mandeb Strait"
+  query: >
+    ("Bab el-Mandeb" OR "Bab al-Mandab" OR "Red Sea") AND
+    (Houthi OR tanker OR attack OR drone OR missile OR reroute OR Suez)
+  backfill_start: "2026-01-01"
+  backfill_end: "2026-08-20"
+  dense_window: null

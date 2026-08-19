@@ -1,0 +1,11 @@
+portid,portname,locode,lat,lon,max_draft_m,has_spm,vlcc_capable,connected_refineries,source,verified
+port1199,Sikka (proxy for Vadinar/Jamnagar SPM),,22.364837,69.807865,20.0,True,True,"Reliance Jamnagar,Nayara Vadinar",PortWatch has no separate Vadinar/Jamnagar node; Sikka is the nearest AIS port entry geographically (inferred mapping -- not PPAC-confirmed),False
+port777,Mundra,IN MUN,22.76297,69.622019,17.5,True,True,,PortWatch catalog (lat/lon/LOCODE verified) + public draft figures (unverified),False
+port883,Paradip,IN PRT,20.280453,86.648922,18.1,True,True,IOCL Paradip,PortWatch catalog (lat/lon/LOCODE verified) + public draft figures (unverified),False
+port1367,Visakhapatnam,IN VTZ,17.65545,83.231409,17.0,True,True,HPCL Visakh,PortWatch catalog (lat/lon/LOCODE verified) + public draft figures (unverified),False
+port811,New Mangalore,IN NML,12.937764,74.81888,20.0,True,True,MRPL Mangalore,PortWatch catalog (lat/lon/LOCODE verified) + public draft figures (unverified),False
+port583,Cochin (Kochi),,9.969352,76.259222,14.5,False,False,BPCL Kochi,PortWatch catalog (lat/lon verified) + public draft figures (unverified),False
+port235,Chennai (Madras),,13.100467,80.294251,16.5,False,False,CPCL Chennai,PortWatch catalog (lat/lon verified) + public draft figures (unverified),False
+port776,Mumbai-Jawaharlal Nehru (Nhava Sheva),IN BOM,18.917323,72.93965,15.0,True,True,"BPCL Mumbai,HPCL Mumbai",PortWatch catalog (lat/lon/LOCODE verified) -- discharge for both Mumbai refineries via nearby SPM/jetties (unverified),False
+port540,Kandla,IN IXY,23.009119,70.215655,14.5,False,False,,PortWatch catalog (lat/lon/LOCODE verified) + public draft figures (unverified),False
+port442,Haldia,IN HAL,22.057791,88.104194,9.0,False,False,IOCL Haldia,PortWatch catalog (lat/lon/LOCODE verified) + public draft figures (unverified),False

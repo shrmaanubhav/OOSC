@@ -1,0 +1,23 @@
+grade,country,api,sulphur_pct,corridor_transited,sanctions_flag,notes,source,verified
+Basrah Medium,Iraq,28,2.9,chokepoint6,False,,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Basrah Heavy,Iraq,24,3.5,chokepoint6,False,,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Arab Light,Saudi Arabia,33,1.97,chokepoint6,False,primary route via Ras Tanura,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Arab Light (via Yanbu),Saudi Arabia,33,1.97,none,False,non-Hormuz route via East-West Pipeline to Red Sea -- but Yanbu onward transit still crosses Bab el-Mandeb (chokepoint4),Design doc bypass-route coupling note,True
+Arab Medium,Saudi Arabia,30,2.59,chokepoint6,False,,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Murban,UAE,40,0.79,chokepoint6,False,primary route,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Murban (via Fujairah),UAE,40,0.79,none,False,true non-Hormuz bypass via ADCOP pipeline to Fujairah (Gulf of Oman -- outside the strait),Design doc bypass_routes.csv note,True
+Upper Zakum,UAE,34,1.9,chokepoint6,False,,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Kuwait Export,Kuwait,31,2.5,chokepoint6,False,,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Qatar Marine,Qatar,36,1.35,chokepoint6,False,,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Oman Export,Oman,34,1.0,none,False,Mina al Fahal is geographically outside the strait,Design doc appendix,True
+Kirkuk (via Ceyhan),Iraq,36,1.9,none,False,non-Hormuz pipeline route to the Mediterranean; intermittently offline,Design doc bypass_routes.csv note,True
+Urals,Russia,32,1.3,chokepoint6,True,seaborne via Baltic/Black Sea then Hormuz-adjacent or Cape-around routing to India,Standard published crude assay characteristics (EIA/Argus-type reference values) + OFAC/OpenSanctions flag,False
+ESPO,Russia,34.8,0.55,none,True,Pacific-loaded; reaches India via Cape/Malacca routing not Hormuz,Standard published crude assay characteristics (EIA/Argus-type reference values) + OFAC/OpenSanctions flag,False
+Sokol,Russia,38,0.2,none,True,Sakhalin-loaded; reaches India via Pacific routing not Hormuz,Standard published crude assay characteristics (EIA/Argus-type reference values) + OFAC/OpenSanctions flag,False
+WTI Midland,United States,40,0.24,none,False,Atlantic routing to India,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Mars,United States,28,2.0,none,False,Atlantic routing to India,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Bonny Light,Nigeria,35,0.14,none,False,Atlantic routing to India,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Qua Iboe,Nigeria,35,0.15,none,False,Atlantic routing to India,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Tupi/Lula,Brazil,29,0.3,none,False,Atlantic routing to India,Standard published crude assay characteristics (EIA/Argus-type reference values),False
+Merey,Venezuela,16,2.4,none,True,heavy sour; OFAC-sensitive supply,Standard published crude assay characteristics (EIA/Argus-type reference values) + OFAC/OpenSanctions flag,False
+Guyana Liza,Guyana,32,0.58,none,False,Atlantic routing to India,Standard published crude assay characteristics (EIA/Argus-type reference values),False

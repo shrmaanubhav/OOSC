@@ -1,0 +1,22 @@
+name,operator,state,capacity_mmtpa,capacity_kbd,nelson_complexity,sulphur_max_pct,connected_ports,can_process_urals,can_process_heavy_sour,source,verified
+Jamnagar (DTA+SEZ),Reliance,Gujarat,,1240,,,port1199,True,True,Design doc appendix -- combined DTA+SEZ capacity is the one figure given directly (largest single-site refining complex in the world),True
+Vadinar,Nayara Energy,Gujarat,20,400,,,port1199,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Paradip,IOCL,Odisha,15,300,,,port883,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Panipat,IOCL,Haryana,15,300,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Koyali,IOCL,Gujarat,13.7,274,,,port1199,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Mathura,IOCL,Uttar Pradesh,8,160,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Barauni,IOCL,Bihar,6,120,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Bongaigaon,IOCL,Assam,2.35,47,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Guwahati,IOCL,Assam,1,20,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Digboi,IOCL,Assam,0.65,13,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Haldia,IOCL,West Bengal,8,160,,,port442,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Mumbai (BPCL),BPCL,Maharashtra,12,240,,,port776,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Kochi,BPCL,Kerala,15.5,310,,,port583,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Bina,BORL (BPCL JV),Madhya Pradesh,7.8,156,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Mumbai (HPCL),HPCL,Maharashtra,9.5,190,,,port776,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Visakh,HPCL,Andhra Pradesh,8.3,166,,,port1367,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Mangalore,MRPL,Karnataka,15,300,,,port811,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Chennai,CPCL,Tamil Nadu,10.5,210,,,port235,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Nagapattinam (Cauvery Basin Refinery),CPCL,Tamil Nadu,1,20,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Numaligarh,NRL,Assam,3,60,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Tatipaka,ONGC,Andhra Pradesh,0.066,1.3,,,,False,False,Public company disclosures -- small indigenous-crude topping unit (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False

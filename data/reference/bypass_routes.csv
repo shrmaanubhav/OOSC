@@ -1,0 +1,5 @@
+route_name,origin_corridor,capacity_kbd,discharge_corridor,status,note,source,verified
+Saudi East-West Pipeline -> Yanbu,chokepoint6,5000,chokepoint4,Operational,"Nameplate bypass of Hormuz, but Yanbu's onward tanker traffic still transits Bab el-Mandeb -- the discharge corridor is itself degraded. Model this coupling explicitly, do not treat as a clean bypass.",Design doc appendix + bypass_routes.csv spec,True
+UAE ADCOP -> Fujairah,chokepoint6,1650,none,Operational,"True Hormuz bypass -- Fujairah is on the Gulf of Oman, outside the strait and outside any other modeled chokepoint.",Design doc appendix (range given as 1.5-1.8 mb/d; midpoint used),True
+Iraq-Turkey Pipeline -> Ceyhan,chokepoint6,700,none,Intermittently offline,"Mediterranean discharge, outside all modeled Gulf/Red Sea corridors. Historically unreliable -- do not assume full nameplate availability.",Design doc appendix (range given as 0.5-0.9 mb/d; midpoint used),True
+Oman direct (Mina al Fahal),chokepoint6,,none,Operational,Not a pipeline bypass -- Omani crude simply loads outside the strait already; included here as a zero-reroute-cost non-Hormuz source.,Design doc appendix,True

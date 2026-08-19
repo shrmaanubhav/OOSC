@@ -1,0 +1,8 @@
+site,capacity_mmt,status,phase,source,verified
+Visakhapatnam,1.33,Commissioned Jun 2015,Phase 1,Design doc appendix (ISPRL/MoPNG),True
+Mangaluru (Permude),1.5,Commissioned Oct 2016,Phase 1,Design doc appendix (ISPRL/MoPNG),True
+Padur,2.5,Commissioned Dec 2018,Phase 1,Design doc appendix (ISPRL/MoPNG),True
+Chandikhol,4.0,"Land acquired (400 acres), RFP under finalisation, ~Rs 9000 cr",Phase 2,Design doc appendix (ISPRL/MoPNG),True
+Padur-II,2.5,"Concession agreement signed 1 Oct 2025, financial closure in progress",Phase 2,Design doc appendix (ISPRL/MoPNG),True
+Mangaluru-II,1.75,"Feasibility done, ~155 acres acquired (ONGC)",Phase 2,Design doc appendix (ISPRL/MoPNG),True
+Bina/Bikaner,,Proposed,Phase 2,Design doc appendix (ISPRL/MoPNG) -- capacity not yet specified in source,True
