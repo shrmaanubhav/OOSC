@@ -1,0 +1,15 @@
+[project]
+name = "sentinel"
+version = "0.1.0"
+description = "Project Sentinel — AI-driven energy supply-chain resilience for India"
+requires-python = ">=3.12"
+dependencies = [
+    "duckdb>=1.5.5",
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "networkx>=3.6.1",
+    "pandas>=3.0.5",
+    "pulp>=3.3.2",
+    "pydantic>=2.13.4",
+    "uvicorn[standard]>=0.52.4",
+]

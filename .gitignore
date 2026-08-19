@@ -1,0 +1,19 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# data — raw pulls are gitignored, snapshots are committed deliberately
+data/raw/
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# Claude Code harness state
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
