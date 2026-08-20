@@ -1,7 +1,13 @@
 """Cross-checks the hand-built data/reference/*.csv tables for internal
 consistency -- every port/refinery cross-reference must resolve to a real
-row. Run standalone; also worth re-running whenever a reference CSV changes
-(e.g. once Phase 4 replaces unverified figures with PPAC-confirmed ones).
+row. Run standalone; also worth re-running whenever a reference CSV changes.
+
+refineries.csv is fully PPAC-verified (Phase 4, ingest/ppac.py). ports.csv
+(draft/SPM/VLCC specs) and sources.csv (crude assay API/sulphur values)
+are NOT covered by any PPAC table and are expected to stay at public-
+knowledge-estimate status unless a primary source (EIA/Argus-type crude
+assay data, port authority draft specs) is added -- that's a Tier 2/
+stretch source, not a gap in Phase 4.
 """
 
 from __future__ import annotations
@@ -60,7 +66,8 @@ def validate() -> None:
     )
     print(
         f"[validate_reference] {len(unverified)} rows flagged verified=False "
-        "-- pending PPAC cross-check in Phase 4, not yet primary-sourced"
+        "-- public-knowledge estimates (ports.csv draft/SPM specs, sources.csv crude "
+        "assays), not covered by any PPAC table; see module docstring"
     )
 
 
