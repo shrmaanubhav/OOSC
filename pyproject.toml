@@ -14,9 +14,11 @@ dependencies = [
     "networkx>=3.6.1",
     "openai>=3.3.1",
     "pandas>=3.0.5",
+    "pdfplumber>=0.11.10",
     "pulp>=3.3.2",
     "pydantic>=2.13.4",
     "python-dotenv>=1.2.3",
     "pyyaml>=6.0.3",
+    "searoute>=1.6.0",
     "uvicorn[standard]>=0.52.4",
 ]

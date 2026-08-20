@@ -1,22 +1,24 @@
 name,operator,state,capacity_mmtpa,capacity_kbd,nelson_complexity,sulphur_max_pct,connected_ports,can_process_urals,can_process_heavy_sour,source,verified
-Jamnagar (DTA+SEZ),Reliance,Gujarat,,1240,,,port1199,True,True,Design doc appendix -- combined DTA+SEZ capacity is the one figure given directly (largest single-site refining complex in the world),True
-Vadinar,Nayara Energy,Gujarat,20,400,,,port1199,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Paradip,IOCL,Odisha,15,300,,,port883,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Panipat,IOCL,Haryana,15,300,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Koyali,IOCL,Gujarat,13.7,274,,,port1199,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Mathura,IOCL,Uttar Pradesh,8,160,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Barauni,IOCL,Bihar,6,120,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Bongaigaon,IOCL,Assam,2.35,47,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Guwahati,IOCL,Assam,1,20,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Digboi,IOCL,Assam,0.65,13,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Haldia,IOCL,West Bengal,8,160,,,port442,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Mumbai (BPCL),BPCL,Maharashtra,12,240,,,port776,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Kochi,BPCL,Kerala,15.5,310,,,port583,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Bina,BORL (BPCL JV),Madhya Pradesh,7.8,156,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Mumbai (HPCL),HPCL,Maharashtra,9.5,190,,,port776,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Visakh,HPCL,Andhra Pradesh,8.3,166,,,port1367,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Mangalore,MRPL,Karnataka,15,300,,,port811,True,True,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Chennai,CPCL,Tamil Nadu,10.5,210,,,port235,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Nagapattinam (Cauvery Basin Refinery),CPCL,Tamil Nadu,1,20,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Numaligarh,NRL,Assam,3,60,,,,False,False,Public company disclosures (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
-Tatipaka,ONGC,Andhra Pradesh,0.066,1.3,,,,False,False,Public company disclosures -- small indigenous-crude topping unit (unverified -- cross-check PPAC Ready Reckoner in Phase 4),False
+Jamnagar (DTA),Reliance,Gujarat,33.0,660,,,port1199,True,True,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Jamnagar (SEZ),Reliance,Gujarat,35.2,704,,,port1199,True,True,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Vadinar,Nayara Energy,Gujarat,20.0,400,,,port1199,True,True,PPAC Ready Reckoner FY2025-26 Table 4.1 -- listed as NEL-Vadinar (data/snapshots/ppac/refinery_capacity.csv),True
+Paradip,IOCL,Odisha,15.0,300,,,port883,True,True,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Panipat,IOCL,Haryana,15.0,300,,,,False,False,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Koyali,IOCL,Gujarat,13.7,274,,,port1199,False,False,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Mathura,IOCL,Uttar Pradesh,8.0,160,,,,False,False,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Barauni,IOCL,Bihar,6.0,120,,,,False,False,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Bongaigaon,IOCL,Assam,2.7,54,,,,False,False,"PPAC Ready Reckoner FY2025-26 Table 4.1 -- corrects an earlier unverified estimate of 2.35 (data/snapshots/ppac/refinery_capacity.csv)",True
+Guwahati,IOCL,Assam,1.2,24,,,,False,False,"PPAC Ready Reckoner FY2025-26 Table 4.1 -- corrects an earlier unverified estimate of 1.0 (data/snapshots/ppac/refinery_capacity.csv)",True
+Digboi,IOCL,Assam,0.65,13,,,,False,False,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Haldia,IOCL,West Bengal,8.0,160,,,port442,False,False,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Mumbai (BPCL),BPCL,Maharashtra,12.0,240,,,port776,True,True,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Kochi,BPCL,Kerala,15.5,310,,,port583,True,True,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Bina,BORL (BPCL-Oman JV),Madhya Pradesh,7.8,156,,,,False,False,PPAC Ready Reckoner FY2025-26 Table 4.1 -- listed as BORL-Bina (data/snapshots/ppac/refinery_capacity.csv),True
+Mumbai (HPCL),HPCL,Maharashtra,9.5,190,,,port776,True,True,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Visakh,HPCL,Andhra Pradesh,15.0,300,,,port1367,True,True,"PPAC Ready Reckoner FY2025-26 Table 4.1 -- corrects an earlier unverified estimate of 8.3 (nearly 2x low) (data/snapshots/ppac/refinery_capacity.csv)",True
+Bathinda,HMEL (HPCL-Mittal JV),Punjab,11.3,226,,,,False,False,"PPAC Ready Reckoner FY2025-26 Table 4.1 -- missing entirely from the earlier hand-built list, added here (data/snapshots/ppac/refinery_capacity.csv)",True
+Mangalore,MRPL (ONGC subsidiary),Karnataka,15.0,300,,,port811,True,True,PPAC Ready Reckoner FY2025-26 Table 4.1 -- listed as MRPL-Mangalore (data/snapshots/ppac/refinery_capacity.csv),True
+Chennai (Manali),CPCL,Tamil Nadu,10.5,210,,,port235,False,False,PPAC Ready Reckoner FY2025-26 Table 4.1 -- listed as Manali (data/snapshots/ppac/refinery_capacity.csv),True
+Nagapattinam (Cauvery Basin Refinery),ONGC-CPCL JV,Tamil Nadu,0.0,0,,,,False,False,"PPAC Ready Reckoner FY2025-26 Table 4.1 -- listed as CBR at 0.0 MMTPA installed capacity, i.e. effectively idle/mothballed as of this edition, not the 1.0 MMTPA earlier assumed (data/snapshots/ppac/refinery_capacity.csv)",True
+Numaligarh,NRL (ONGC group),Assam,3.0,60,,,,False,False,PPAC Ready Reckoner FY2025-26 Table 4.1 (data/snapshots/ppac/refinery_capacity.csv),True
+Tatipaka,ONGC,Andhra Pradesh,0.07,1.4,,,,False,False,"PPAC Ready Reckoner FY2025-26 Table 4.1 -- corrects an earlier unverified estimate of 0.066 (data/snapshots/ppac/refinery_capacity.csv)",True
