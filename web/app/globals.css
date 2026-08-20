@@ -1,26 +1,72 @@
 @import "tailwindcss";
 
+/* Dark, single-theme by design -- this is an operations dashboard meant to
+   be read on a wall display, not a document that follows OS preference. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0e14;
+  --panel: #111823;
+  --panel-2: #161f2c;
+  --border: #223044;
+  --foreground: #dbe4f0;
+  --muted: #7d8ea6;
+
+  /* Semantic risk ramp -- used identically everywhere (CRI value, map dot,
+     gauge arc) so a colour means one thing across the whole dashboard. */
+  --risk-0: #2dd4a7;
+  --risk-1: #a3d13a;
+  --risk-2: #f0b429;
+  --risk-3: #f2762e;
+  --risk-4: #e5484d;
+
+  --accent: #4c9aff;
+  --ok: #2dd4a7;
+  --warn: #f0b429;
+  --bad: #e5484d;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel-2);
+  --color-border: var(--border);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* system stack only: next/font/google fetches at build time, which would
+     break the airplane-mode exit criterion */
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
+
+.mono {
+  font-family: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+/* Every panel carries a provenance/as-of line; this is its shared style. */
+.asof {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+input[type="range"] {
+  accent-color: var(--accent);
+}
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a3a52; border-radius: 5px; }

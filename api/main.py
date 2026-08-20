@@ -327,6 +327,26 @@ def _self_check() -> None:
     # unknown reference table must not 500
     assert "error" in client.get("/api/reference/nope").json()
 
+    # Concurrency: the dashboard fires ~7 requests in parallel on first
+    # load, and FastAPI runs sync endpoints in a threadpool. A shared
+    # non-thread-safe handle in the read path (duckdb's default connection
+    # was exactly this) only fails under that parallelism -- serial checks
+    # above pass right through it. Cleared caches so the threads actually
+    # race the underlying reads rather than a warm dict.
+    from concurrent.futures import ThreadPoolExecutor
+
+    _cache.clear()
+    risk._daily_cache = None
+    urls = [
+        "/api/cri/chokepoint6", "/api/cri/chokepoint4", "/api/backtest", "/api/twin",
+        "/api/scenario?corridor_id=chokepoint6&severity=1.0",
+        "/api/procurement?corridor_id=chokepoint6&severity=1.0",
+        "/api/reserve?daily_gap_kbd=500",
+    ]
+    with ThreadPoolExecutor(max_workers=len(urls)) as pool:
+        codes = [r.status_code for r in pool.map(client.get, urls)]
+    assert all(c == 200 for c in codes), dict(zip(urls, codes))
+
     print("[api] self-check passed")
 
 

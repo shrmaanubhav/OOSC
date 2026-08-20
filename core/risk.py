@@ -24,7 +24,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import duckdb
 import numpy as np
 import pandas as pd
 
@@ -42,10 +41,26 @@ EVENT_HALF_LIFE_DAYS = 7.0
 EVENT_DECAY_LAMBDA = np.log(2) / EVENT_HALF_LIFE_DAYS
 
 
+def _load_daily() -> pd.DataFrame:
+    """Read the PortWatch snapshot. Deliberately pandas, not duckdb: this is
+    a plain full-table read, and duckdb's module-level default connection is
+    not thread-safe -- api/main.py runs sync endpoints in a threadpool, so
+    concurrent requests raced it into "Attempting to execute an unsuccessful
+    or closed pending query result" (hit live on the dashboard's parallel
+    first load). Cached because every CRI call re-reads the same file."""
+    global _daily_cache
+    if _daily_cache is None:
+        _daily_cache = pd.read_parquet(PORTWATCH_SNAPSHOT)
+    return _daily_cache
+
+
+_daily_cache: pd.DataFrame | None = None
+
+
 def compute_O(portid: str, daily: pd.DataFrame | None = None) -> pd.Series:
     """clip(1 - 7dMA(n_total) / seasonal_baseline(doy), 0, 1), indexed by date."""
     if daily is None:
-        daily = duckdb.query(f"SELECT * FROM '{PORTWATCH_SNAPSHOT.as_posix()}'").to_df()
+        daily = _load_daily()
     sub = daily[daily["portid"] == portid].copy()
     sub["date"] = pd.to_datetime(sub["date"])
     sub = sub.sort_values("date")

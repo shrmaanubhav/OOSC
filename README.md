@@ -6,7 +6,7 @@ closure that began 28 Feb 2026 and was still ongoing as of this build
 (19–20 Aug 2026). Full background, architecture rationale, and formulas
 live in `PLAN.md` (phase index) and the design doc referenced there;
 this file is about running and understanding what exists **right now**
-(Phases 0–6 complete).
+(Phases 0–8 complete).
 
 ## What's built so far
 
@@ -29,7 +29,42 @@ this file is about running and understanding what exists **right now**
    **provenance validator** (`agent/provenance.py`) that catches any
    number an agent response can't trace back to an actual tool result.
 
-Phases 7–9 (agent/chat layer, frontend, demo polish) are not built yet.
+6. **An agent** (`agent/loop.py`) that answers questions using only these
+   tools, with every number in its answer checked in code against the
+   tool results that produced it — and a **dashboard** (`web/`) that
+   runs the whole thing with the network unplugged.
+
+Phase 9 (demo rehearsal + polish) is not done yet.
+
+## Run the dashboard
+
+Two processes. Backend first:
+
+```bash
+uv run python api/main.py
+```
+
+Then the frontend, in a second terminal:
+
+```bash
+npm --prefix web run dev
+```
+
+Open http://localhost:3000. Everything except the Analyst panel works
+with no API key and no internet — the backend reads only from
+`data/snapshots/`, and the map's coastlines are a local GeoJSON rather
+than a tile server. The Analyst panel is the one part that needs a live
+LLM key (see `.env`); every other panel is fully offline.
+
+The two interactive controls worth driving in a demo:
+
+- **λ (risk aversion)** in the procurement panel re-solves the LP
+  server-side on every drag and visibly shifts allocation away from
+  high-CRI corridors.
+- **Hormuz severity** + **“+ Bab el-Mandeb closed”** in the impact panel
+  re-runs the full cascade, which is where the bypass-coupling point
+  lands: the Saudi East-West pipeline stops being an escape route once
+  its discharge corridor is also shut.
 
 ## Prerequisites
 
@@ -137,8 +172,24 @@ uv run python agent/provenance.py
 
 Runs the provenance validator against a grounded response (zero
 violations) and an adversarial one with a fabricated figure (a named,
-visible violation) — this is what Phase 7's agent loop will run every
-response through before it reaches the user.
+visible violation) — the agent loop runs every response through this
+before it reaches the user, and the dashboard's provenance badge shows
+the verdict.
+
+## Ask the agent
+
+```bash
+uv run python agent/loop.py "what happens if Bab el-Mandeb closes too?"
+```
+
+Needs a live LLM key (`.env`, default provider `groq`; `LLM_PROVIDER=gemini`
+and `openai` also work). The loop calls tools from `agent/tools.py` — the
+only numeric path it's allowed to use — and prints how many of the numbers
+in its answer traced back to an actual tool result.
+
+Note that Groq's free tier caps at 200,000 tokens/**day**, separate from
+its per-minute limit. When that's exhausted the loop degrades gracefully
+rather than crashing, but you'll want `LLM_PROVIDER=gemini` to keep going.
 
 ## Re-running ingestion (optional — only if you want fresh data)
 
@@ -188,8 +239,9 @@ rate-limit handling, graph construction, LP correctness, ...):
 
 ```bash
 for f in ingest/portwatch.py ingest/gdelt.py ingest/gdelt_bigquery.py ingest/ppac.py \
-         agent/llm.py agent/extractor.py agent/provenance.py core/risk.py core/twin.py \
-         core/procurement.py core/scenario.py core/reserve.py core/backtest.py; do
+         agent/llm.py agent/extractor.py agent/provenance.py agent/tools.py agent/loop.py \
+         api/main.py core/risk.py core/twin.py core/procurement.py core/scenario.py \
+         core/reserve.py core/backtest.py; do
   uv run python "$f" --self-check
 done
 ```
@@ -212,10 +264,18 @@ core/            risk.py (CRI), twin.py (digital twin), procurement.py
                  (allocation LP), scenario.py (cascade engine),
                  reserve.py (SPR drawdown LP) -- pure computation,
                  no LLM calls
-agent/           llm.py (provider-switchable LLM client), extractor.py
-                 (article -> structured event, with a hallucination
-                 guard enforced in code)
-web/             Next.js 15 scaffold, untouched until Phase 8
+agent/           llm.py (provider-switchable LLM client incl. native
+                 function calling), extractor.py (article -> structured
+                 event, with a hallucination guard enforced in code),
+                 tools.py (the ONLY numeric path the LLM may use),
+                 loop.py (bounded tool-calling loop), provenance.py
+                 (every number must trace to a tool result),
+                 prompts/analyst.md (versioned)
+api/             main.py -- FastAPI; REST for the charts, SSE for the
+                 agent. Reads snapshots only; no outbound calls except
+                 the LLM provider on /api/ask
+web/             Next.js 15 dashboard (deck.gl map, recharts, hand-rolled
+                 Sankey). public/land-110m.geojson is the offline basemap
 ```
 
 `PLAN.md` is the phase-by-phase build log with what's done, what's

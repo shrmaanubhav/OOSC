@@ -17,8 +17,8 @@ Work stops after each phase for review — do not chain into the next phase with
 | 4 | Digital twin + PPAC parsing | ✅ Done |
 | 5 | Scenario cascade, procurement LP, reserve LP | ✅ Done |
 | 6 | Backtest + provenance validator | ✅ Done |
-| 7 | Agent loop + tools | ⬜ Not started |
-| 8 | Frontend | ⬜ Not started |
+| 7 | Agent loop + tools | ✅ Done |
+| 8 | Frontend | ✅ Done |
 | 9 | Demo rehearsal + polish | ⬜ Not started |
 
 ---
@@ -102,7 +102,11 @@ Python via `uv`, Next.js 15 in `web/`, directory structure, `.gitignore`, `PLAN.
 
 **Exit criterion:** the agent answers "what happens if Bab el-Mandeb closes too?" using ≥3 tool calls, zero provenance violations, and surfaces the Saudi East-West → Bab el-Mandeb coupling from `bypass_routes.csv` without being told to.
 
-**Status:** Not started.
+**Status:** Done, verified live on `gemini-3.6-flash`: 5 tool calls, **21/21 numbers traced, zero provenance violations**, and it reached for `get_bypass_routes` unprompted and led with the Saudi East-West → Yanbu → Bab el-Mandeb coupling. Tool JSON Schema is defined once and shared between the prompt text and every provider's function-calling API, with a self-check asserting schema/signature parity so the model's view and the executable signature can't drift. The loop withholds tool schemas on its final step, which is what makes the ≤6 budget binding rather than advisory; `run_iter()` is the generator the SSE endpoint streams and `run()` just drains it, so streaming and synchronous paths can't diverge.
+
+Three real provider bugs found and fixed, all now isolated in `agent/llm.py`: groq's `openai/gpt-oss-20b` routes any tool-shaped intent through its native tool channel and HTTP 400s when no schema is passed (this killed the original prose-JSON contract outright and forced the move to native function calling); an inlined `genai.Client()` gets closed out from under its own request; and Gemini 3.x rejects a replayed `functionCall` that lost its `thought_signature`, so the model's original part is now preserved verbatim rather than reconstructed.
+
+Also hit Groq's 200k-token *daily* cap mid-verification — the loop degraded gracefully and kept completed work, exactly as rule 7 requires, and verification continued on Gemini.
 
 ---
 
@@ -112,7 +116,13 @@ Next.js: animated flow map (§4.1, deck.gl/MapLibre, time scrubber), CRI timelin
 
 **Exit criterion:** full demo runs end-to-end from `data/snapshots/` with networking disabled ("airplane mode" test).
 
-**Status:** Not started.
+**Status:** Done. All panels built and verified against real data in a browser: flow map (deck.gl, time scrubber with play), CRI timeline (S-leads-O visible, closure marked), Sankey (country → operator), impact waterfall, days-of-cover gauge, backtest panel, λ slider, and the provenance badge. Verified live: the λ slider genuinely re-solves server-side and shifts the allocation (Russia 40% → 41% as risk aversion pushes off high-CRI Hormuz — a real re-solve, not a decorative control), and the agent panel streams tool-call chips over SSE and lands the badge on **✓ 23/23 traced**.
+
+**Airplane-mode confirmed by network trace:** every request the page makes goes to `localhost:3000` or `127.0.0.1:8000` — no CDN, no map tiles, no font fetch, no external host of any kind. Two things had to change to earn that: `next/font/google` was dropped for a system font stack (it fetches at build time), and the basemap is a 126KB Natural Earth GeoJSON in `web/public/` drawn by deck.gl rather than a tile server. `npm run build` passes clean with no warnings.
+
+Found and fixed a real backend concurrency bug in the process: `core/risk.py` read the PortWatch snapshot through duckdb's module-level default connection, which is not thread-safe — FastAPI runs sync endpoints in a threadpool, so the dashboard's parallel first load raced it into "Attempting to execute an unsuccessful or closed pending query result". It was a plain `SELECT *`, so it's `pd.read_parquet` now, cached. `api/main.py`'s self-check gained a parallel-request regression test, since serial checks pass straight through this class of bug.
+
+One caveat on verification: the browser pane in this environment doesn't composite frames, so the WebGL map could not be confirmed *visually* — deck.gl reports `onLoad` with no errors, WebGL2 is available, and its container measures correctly, but a human should eyeball the map once before demoing.
 
 ---
 
