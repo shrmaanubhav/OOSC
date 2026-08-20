@@ -6,7 +6,7 @@ closure that began 28 Feb 2026 and was still ongoing as of this build
 (19–20 Aug 2026). Full background, architecture rationale, and formulas
 live in `PLAN.md` (phase index) and the design doc referenced there;
 this file is about running and understanding what exists **right now**
-(Phases 0–4 complete).
+(Phases 0–5 complete).
 
 ## What's built so far
 
@@ -16,9 +16,14 @@ this file is about running and understanding what exists **right now**
    verified "news leads AIS by about a week" result.
 3. **A digital twin** (crude sources → corridor → Indian port →
    refinery) built from PPAC's authoritative refinery capacity data.
+4. **A procurement LP** allocating crude sources to refineries (cost +
+   risk-adjusted, with an anti-concentration safeguard), a **scenario
+   cascade engine** turning a corridor shock into refinery run-cuts,
+   product shortfalls, a calibrated price impact, and India-macro
+   impact (import bill, %GDP, CPI) — every number sourced or flagged,
+   and a **reserve drawdown LP** showing days-of-cover under a shock.
 
-Phases 5–9 (scenario cascade, procurement optimizer, backtest,
-agent/chat layer, frontend) are not built yet.
+Phases 6–9 (backtest, agent/chat layer, frontend) are not built yet.
 
 ## Prerequisites
 
@@ -53,10 +58,10 @@ uv run python core/risk.py
 ```
 
 Prints the last 30 days of `CRI(chokepoint6)` (Strait of Hormuz) with
-its four components (`O` observed/AIS, `S` news signal, `E` event
-severity, `E` extracted events, `X` exposure) and which ones had data
-on each day. To see the headline result — news leading AIS by about a
-week around the actual closure — inspect the Feb–Mar 2026 window:
+its four components (`O` observed/AIS, `S` news signal, `E` extracted
+event severity, `X` exposure) and which ones had data on each day. To
+see the headline result — news leading AIS by about a week around the
+actual closure — inspect the Feb–Mar 2026 window:
 
 ```bash
 uv run python -c "
@@ -83,6 +88,27 @@ portwatch/` (fast, no network — `searoute`'s routing data ships with
 the package) and prints a sample path: a crude grade → the corridor it
 transits → an Indian discharge port → the refinery it feeds, with real
 maritime distances.
+
+## Run a scenario
+
+```bash
+uv run python core/scenario.py
+```
+
+Runs `run_scenario('chokepoint6', 1.0, 90)` — a full Hormuz closure for
+90 days — through the cascade: the procurement LP's reroute attempt,
+refinery run-cuts, product shortfall (PPAC's real yield mix), a price
+impact calibrated on the actual Feb–Mar 2026 $65→$113.57/bbl move, and
+India-macro impact (import bill, %GDP, CPI). Also runs a harder variant
+(sanctions-compliance mode, which blocks Russia/Venezuela substitution)
+that actually triggers a refinery shortfall — the base scenario finds
+enough non-Hormuz capacity to fully reroute, which is itself a real
+finding (matches what MoPNG reported actually happening).
+
+```bash
+uv run python core/procurement.py   # just the allocation LP, incl. the λ/μ mechanics
+uv run python core/reserve.py       # SPR drawdown schedule under a supply gap
+```
 
 ## Re-running ingestion (optional — only if you want fresh data)
 
@@ -121,17 +147,19 @@ uv run python ingest/ppac.py
 uv run python ingest/validate_reference.py   # reference CSV consistency
 uv run python core/risk.py                   # CRI, now with fresh data
 uv run python core/twin.py                   # digital twin
+uv run python core/scenario.py               # full cascade (calls procurement.py + reserve inputs)
 ```
 
 ## Self-checks
 
 Every script has an offline, no-network `--self-check` that exercises
 its non-trivial logic (date normalization, baseline math, dedup,
-rate-limit handling, graph construction, ...):
+rate-limit handling, graph construction, LP correctness, ...):
 
 ```bash
-for f in ingest/portwatch.py ingest/gdelt.py ingest/gdelt_bigquery.py \
-         ingest/ppac.py agent/llm.py agent/extractor.py core/risk.py core/twin.py; do
+for f in ingest/portwatch.py ingest/gdelt.py ingest/gdelt_bigquery.py ingest/ppac.py \
+         agent/llm.py agent/extractor.py core/risk.py core/twin.py \
+         core/procurement.py core/scenario.py core/reserve.py; do
   uv run python "$f" --self-check
 done
 ```
@@ -150,7 +178,9 @@ data/
   raw/           gitignored scratch space for large downloads (PDFs,
                  duckdb files) that get parsed down to a snapshot
 ingest/          one script per external data source
-core/            risk.py (CRI), twin.py (digital twin) -- pure computation,
+core/            risk.py (CRI), twin.py (digital twin), procurement.py
+                 (allocation LP), scenario.py (cascade engine),
+                 reserve.py (SPR drawdown LP) -- pure computation,
                  no LLM calls
 agent/           llm.py (provider-switchable LLM client), extractor.py
                  (article -> structured event, with a hallucination
@@ -182,5 +212,22 @@ arithmetic, etc.) — worth reading if you're extending this.
   source, and are flagged `verified=False` accordingly. Run `uv run
   python ingest/validate_reference.py` to see the count and which file.
 - **The digital twin has no Reserve or Product nodes.** That's
-  deliberate scope discipline (see `core/twin.py`'s docstring) — those
-  belong to Phase 5's `core/reserve.py` and `core/scenario.py`.
+  deliberate scope discipline (see `core/twin.py`'s docstring) — Phase
+  5's `core/reserve.py` and `core/scenario.py` cover that ground
+  separately rather than duplicating it as twin nodes.
+- **The procurement LP's cost is a distance proxy, not real pricing.**
+  No FOB/freight/war-risk data is ingested (Tier 2, deferred), so the
+  anti-concentration safeguard is verified correct via synthetic
+  self-check but doesn't visibly bind on this build's real numbers — a
+  pure-distance model can't reproduce Russia's actual cost-competitiveness,
+  which comes from price discount, not proximity. `core/procurement.py`'s
+  own demo output explains this rather than hiding it.
+- **Scenario cascade demand/yield are simplifications.** Refinery
+  "demand" is nameplate capacity (India's refineries run at high
+  utilization, but this isn't the same as PPAC reporting an exact
+  throughput figure), and product shortfall uses one national-average
+  yield mix (PPAC Table 4.5) applied to every refinery rather than
+  refinery-specific yields. CPI impact assumes 1:1 crude-to-retail
+  pass-through, which ignores India's active fuel-excise-duty cushioning.
+  All disclosed in each output's `confidence`/`method` field, not just
+  here.
