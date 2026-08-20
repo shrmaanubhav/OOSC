@@ -4,14 +4,17 @@ version = "0.1.0"
 description = "Project Sentinel — AI-driven energy supply-chain resilience for India"
 requires-python = ">=3.12"
 dependencies = [
-    "anthropic>=0.124.0",
     "duckdb>=1.5.5",
     "fastapi>=0.141.1",
+    "google-genai>=2.19.0",
+    "groq>=1.6.0",
     "httpx>=0.28.1",
     "networkx>=3.6.1",
+    "openai>=3.3.1",
     "pandas>=3.0.5",
     "pulp>=3.3.2",
     "pydantic>=2.13.4",
+    "python-dotenv>=1.2.3",
     "pyyaml>=6.0.3",
     "uvicorn[standard]>=0.52.4",
 ]

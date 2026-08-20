@@ -1,12 +1,12 @@
 """Batched, cached article -> structured event extraction (design doc §3.1).
 
-Key-gated: real classification calls the Anthropic API (a small, fast
-model -- this is high-volume classification, not reasoning) and needs
-ANTHROPIC_API_KEY. No key is configured in this environment yet, so
-`main()` checks for one and exits cleanly with instructions rather than
-failing loudly or blocking the rest of the build (same policy as the
-EIA/data.gov.in ingestion: build against the real interface, wait for
-the credential, don't stall on it).
+Key-gated: real classification calls an LLM (a small, fast model -- this
+is high-volume classification, not reasoning) through agent/llm.py's
+provider-switchable client (LLM_PROVIDER=groq|openai|gemini in .env, see
+.env.example). No key is configured in this environment yet, so `main()`
+checks for one and exits cleanly with instructions rather than failing
+loudly or blocking the rest of the build (same policy as EIA/data.gov.in:
+build against the real interface, wait for the credential, don't stall).
 
 Hard rule enforced here, not just documented: an event with no verbatim
 `evidence_span` is discarded. That's the cheapest hallucination guard
@@ -18,18 +18,18 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import sys
 from pathlib import Path
 
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from agent import llm  # noqa: E402
+
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 ARTICLES_PATH = DATA_DIR / "snapshots" / "gdelt" / "articles.parquet"
 CACHE_DIR = DATA_DIR / "snapshots" / "events" / "cache"
 EVENTS_PATH = DATA_DIR / "snapshots" / "events" / "events.parquet"
-
-MODEL = "claude-haiku-4-5-20251001"  # small/fast: this is classification, not reasoning
 
 EVENT_TYPES = {
     "vessel_attack", "mine_laying", "closure_declared", "reopening",
@@ -101,14 +101,9 @@ def classify_article(article: dict, classify_fn) -> dict | None:
     return _validate(raw, article)
 
 
-def _live_classify_fn(client, article: dict) -> dict:
-    resp = client.messages.create(
-        model=MODEL,
-        max_tokens=300,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": f"Title: {article.get('title', '')}\nURL: {article.get('url', '')}"}],
-    )
-    text = resp.content[0].text.strip()
+def _live_classify_fn(article: dict) -> dict:
+    user_prompt = f"Title: {article.get('title', '')}\nURL: {article.get('url', '')}"
+    text = llm.chat(SYSTEM_PROMPT, user_prompt, max_tokens=300)
     try:
         return json.loads(text)
     except json.JSONDecodeError:
@@ -130,21 +125,19 @@ def main() -> None:
     if not ARTICLES_PATH.exists():
         print(f"[extractor] {ARTICLES_PATH} not found -- run ingest/gdelt.py first")
         return
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    if not llm.available():
         print(
-            "[extractor] ANTHROPIC_API_KEY not set -- event extraction needs an LLM "
-            "call and is key-gated, same policy as EIA/data.gov.in. Set the key and "
-            "re-run `uv run python agent/extractor.py` when ready; nothing else in "
-            "the build is blocked by this."
+            f"[extractor] {llm.api_key_env_var()} not set (LLM_PROVIDER={llm.provider()}) -- "
+            "event extraction needs an LLM call and is key-gated, same policy as "
+            "EIA/data.gov.in. Set the key in .env (see .env.example) and re-run "
+            "`uv run python agent/extractor.py` when ready; nothing else in the "
+            "build is blocked by this."
         )
         return
 
-    import anthropic
-
-    client = anthropic.Anthropic()
     articles = pd.read_parquet(ARTICLES_PATH)
-    print(f"[extractor] classifying {len(articles)} articles ({MODEL})...")
-    events = extract_all(articles, lambda a: _live_classify_fn(client, a))
+    print(f"[extractor] classifying {len(articles)} articles ({llm.provider()}/{llm.model()})...")
+    events = extract_all(articles, _live_classify_fn)
     EVENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
     events.to_parquet(EVENTS_PATH, index=False)
     print(f"[extractor] {len(events)}/{len(articles)} articles produced a valid event -> {EVENTS_PATH}")
