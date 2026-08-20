@@ -14,10 +14,10 @@ export default function Panel({
   children,
   className = "",
 }: {
-  title: string;
-  subtitle?: string;
+  title: ReactNode;
+  subtitle?: ReactNode;
   asOf?: string | null;
-  caveat?: string;
+  caveat?: ReactNode;
   right?: ReactNode;
   children: ReactNode;
   className?: string;

@@ -19,3 +19,6 @@ data/snapshots/events/cache/
 # OS
 .DS_Store
 Thumbs.db
+
+# scratch process logs from local dev runs
+*.log

@@ -8,6 +8,21 @@ live in `PLAN.md` (phase index) and the design doc referenced there;
 this file is about running and understanding what exists **right now**
 (Phases 0–8 complete).
 
+## Quick start (judges — 2 minutes)
+
+```bash
+uv sync && cp .env.example .env
+./run.sh          # or: run.ps1 on Windows
+```
+
+Open http://localhost:3000. **No API keys and no internet connection are
+required** — the dashboard reads from `data/snapshots/`, frozen 2026-08-20,
+and the map's coastlines are a local file, not a tile server. The one
+exception is the Analyst chat panel, which needs a live LLM key (see
+`.env.example`); every other panel works with the network unplugged. See
+`docs/methodology.md` for the full list of data-quality caveats, also
+reachable from the "ⓘ methodology" link in the dashboard header.
+
 ## What's built so far
 
 1. **Real AIS data** (IMF PortWatch) showing the Hormuz collapse.

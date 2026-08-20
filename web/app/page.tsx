@@ -6,6 +6,7 @@ import BacktestPanel from "./components/BacktestPanel";
 import CriTimeline from "./components/CriTimeline";
 import FlowMap from "./components/FlowMap";
 import ImpactWaterfall from "./components/ImpactWaterfall";
+import OnboardingStrip from "./components/OnboardingStrip";
 import ProcurementPanel from "./components/ProcurementPanel";
 import ReserveGauge from "./components/ReserveGauge";
 import {
@@ -124,20 +125,34 @@ export default function Dashboard() {
   const onCursorChange = useCallback((d: string) => setCursorDate(d), []);
 
   const criNow = cri.chokepoint6?.series.find((p) => p.date === cursorDate)?.CRI ?? null;
+  const [showMethodology, setShowMethodology] = useState(false);
 
   return (
     <main className="min-h-screen p-4 lg:p-5 max-w-[1800px] mx-auto">
       <header className="flex flex-wrap items-end justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-[19px] font-semibold tracking-tight">
-            Project Sentinel
-            <span className="text-[var(--muted)] font-normal text-[13px] ml-2.5">
-              India energy supply-chain resilience
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-[19px] font-semibold tracking-tight">
+              Project Sentinel
+              <span className="text-[var(--muted)] font-normal text-[13px] ml-2.5">
+                India energy supply-chain resilience
+              </span>
+            </h1>
+            <span className="text-[10px] font-semibold tracking-wide px-2 py-0.5 rounded-full bg-[#2dd4a71f] text-[var(--ok)] border border-[#2dd4a755]">
+              DEMO — {cri.chokepoint6?.as_of ?? "…"} SNAPSHOT
             </span>
-          </h1>
+          </div>
           <p className="asof mt-0.5">
-            Backtested against the real Strait of Hormuz closure, 28 Feb 2026 → present. All data
-            served from frozen local snapshots — no live feeds.
+            Backtested against the real Strait of Hormuz closure, 28 Feb 2026 → present. Runs
+            entirely on frozen local snapshots for demo reliability — no live feeds, no network
+            calls except the Analyst panel below. The ingestion pipeline itself is real and
+            scheduled; see <code className="mono">ingest/</code> in the repo.{" "}
+            <button
+              onClick={() => setShowMethodology((v) => !v)}
+              className="underline decoration-dotted text-[var(--accent)] hover:text-[var(--foreground)]"
+            >
+              ⓘ methodology &amp; limitations
+            </button>
           </p>
         </div>
         <div className="flex items-center gap-2.5">
@@ -177,6 +192,59 @@ export default function Dashboard() {
             <code className="mono">uv run python api/main.py</code>.
           </p>
         </div>
+      )}
+
+      <OnboardingStrip />
+
+      {showMethodology && (
+        <section className="panel mt-0 mb-4 px-4 py-3 border-[var(--accent)]/40">
+          <h3 className="text-[11px] uppercase tracking-wide text-[var(--foreground)] mb-2 font-semibold">
+            Methodology &amp; known limitations
+          </h3>
+          <ul className="text-[12px] text-[#c2cfe0] leading-relaxed space-y-1.5 list-disc pl-4">
+            <li>
+              <b className="text-[var(--foreground)]">AIS data (O)</b> — IMF PortWatch, publishes
+              2–9 days late and documents GPS jamming/spoofing in the conflict zone. Never
+              real-time.
+            </li>
+            <li>
+              <b className="text-[var(--foreground)]">Event severity (E)</b> — from a token-capped
+              LLM extraction run (54 events total); thin by construction, reported as missing
+              rather than zero when absent.
+            </li>
+            <li>
+              <b className="text-[var(--foreground)]">Refinery capacity</b> — PPAC Ready Reckoner,
+              monthly-aggregate granularity only.
+            </li>
+            <li>
+              <b className="text-[var(--foreground)]">Procurement cost</b> — a real sea-route
+              distance proxy, not FOB/freight/war-risk pricing (no primary source ingested for
+              those yet).
+            </li>
+            <li>
+              <b className="text-[var(--foreground)]">Sanctions flag</b> — a hand-tagged column in{" "}
+              <code className="mono">data/reference/sources.csv</code> (Urals/ESPO/Sokol/Merey),
+              not backed by a live sanctioned-vessel/entity list (e.g. OpenSanctions) yet.
+            </li>
+            <li>
+              <b className="text-[var(--foreground)]">Scenario cascade</b> — demand uses nameplate
+              refinery capacity, one national yield mix applied to every refinery, and 1:1
+              crude-to-CPI pass-through that ignores India’s fuel excise cushioning.
+            </li>
+            <li>
+              <b className="text-[var(--foreground)]">Digital twin</b> — the flow map above{" "}
+              <i>is</i> the twin view: a networkx graph of source → corridor → port → refinery,
+              geospatially rendered and driven by the same severity/λ controls as the other
+              panels, not a separate artifact.
+            </li>
+            <li>
+              <b className="text-[var(--foreground)]">Backtest</b> — fit window CRI (Bab
+              el-Mandeb, Oct 2023–Feb 2024) is O-only since GDELT coverage doesn’t reach that far
+              back; validation window (Hormuz) has all four components. AUC is undefined, not
+              zero, at horizons where the sustained closure leaves only one label class.
+            </li>
+          </ul>
+        </section>
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -262,13 +330,14 @@ export default function Dashboard() {
       </section>
 
       <footer className="asof mt-4 leading-relaxed border-t border-[var(--border)] pt-3">
-        <strong className="text-[var(--foreground)]">Known limitations.</strong> AIS chokepoint data
-        (IMF PortWatch) publishes 2–9 days late and PortWatch documents GPS jamming/spoofing in the
-        conflict zone — nothing here is real-time. PPAC refinery data is monthly aggregate only.
-        Event severity (E) comes from a token-capped extraction run and is thin. Procurement cost is
-        a sea-route distance proxy, not real FOB/freight/war-risk pricing. Scenario demand uses
-        nameplate capacity and one national yield mix, with 1:1 crude-to-CPI pass-through that
-        ignores India’s fuel excise cushioning. Current CRI(Hormuz) ={" "}
+        Full methodology and limitations: click{" "}
+        <button
+          onClick={() => setShowMethodology(true)}
+          className="underline decoration-dotted text-[var(--accent)] hover:text-[var(--foreground)]"
+        >
+          ⓘ methodology &amp; limitations
+        </button>{" "}
+        above. Current CRI(Hormuz) ={" "}
         <span className="mono">{criNow == null ? "—" : criNow.toFixed(1)}</span> as of {cursorDate}.
       </footer>
     </main>

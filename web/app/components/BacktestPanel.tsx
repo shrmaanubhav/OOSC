@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { BacktestResult, fmt, num } from "../lib/api";
 import Panel from "./Panel";
+import { Term } from "./Term";
 
 /** AUC per horizon + the reliability curve. A null AUC is shown as "n/a
  *  (single class)" rather than blanked or coerced to 0.5 — at h=30 the
@@ -33,6 +34,12 @@ export default function BacktestPanel({ data }: { data: BacktestResult | null })
       className="min-h-[330px]"
     >
       <div className="flex flex-col h-full gap-3">
+        <p className="text-[12px] text-[#c2cfe0] leading-relaxed">
+          We fit this on the real 2023 Red Sea crisis and test it — untouched — against the real
+          2026 Hormuz closure. An <Term id="AUC">AUC</Term> of {h7?.auc?.toFixed(2) ?? "—"} at 7
+          days means the score almost perfectly separated &quot;disruption coming&quot; from
+          &quot;business as usual&quot;, without ever seeing Hormuz during training.
+        </p>
         <div className="grid grid-cols-3 gap-2">
           {(data?.horizons ?? []).map((h) => (
             <div

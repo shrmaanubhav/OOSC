@@ -51,10 +51,36 @@ export default function ImpactWaterfall({
 
   const runCutCount = Object.keys(data?.run_cuts ?? {}).length;
 
+  const stages = data
+    ? [
+        { label: "Shock", value: `${severity.toFixed(2)}× severity` },
+        { label: "Reroute", value: `${fmt(data.total_shortfall_kbd, 0)} kbd unmet` },
+        { label: "Refinery cuts", value: `${runCutCount} refineries` },
+        { label: "Price", value: `+$${fmt(delta, 1)}/bbl` },
+        { label: "India macro", value: `${fmt(data.macro.cpi_impact_pct * 100, 2)} pp CPI` },
+      ]
+    : [];
+
   return (
     <Panel
       title="Impact cascade"
-      subtitle="Corridor shock → reroute attempt → refinery cuts → price → India macro"
+      subtitle={
+        stages.length > 0 ? (
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            {stages.map((s, i) => (
+              <span key={s.label} className="flex items-center gap-1.5">
+                {i > 0 && <span className="text-[var(--muted)]">→</span>}
+                <span>
+                  {s.label}{" "}
+                  <b className="text-[var(--foreground)] mono font-normal">{s.value}</b>
+                </span>
+              </span>
+            ))}
+          </span>
+        ) : (
+          "Corridor shock → reroute attempt → refinery cuts → price → India macro"
+        )
+      }
       asOf={data ? `severity ${severity.toFixed(2)}` : undefined}
       caveat={data?.confidence?.macro}
       className="min-h-[400px]"

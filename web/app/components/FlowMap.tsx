@@ -190,7 +190,7 @@ export default function FlowMap({
 
   return (
     <Panel
-      title="Crude flow map"
+      title="Crude flow map — the digital twin, live"
       subtitle="Allocation arcs from the procurement LP · corridor dots coloured by CRI on the scrubbed date"
       asOf={cursorDate}
       caveat="Sources and refineries are drawn at their shipping corridor / discharge port — the twin geocodes corridors and ports, not fields and plants."

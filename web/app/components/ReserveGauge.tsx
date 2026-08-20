@@ -3,6 +3,7 @@
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ReserveResult, fmt, num } from "../lib/api";
 import Panel from "./Panel";
+import { Term } from "./Term";
 
 /** Days-of-cover gauge + the drawdown curve behind it. The gauge reads the
  *  SPR only — conflating it with India's ~74 days of total national storage
@@ -31,7 +32,7 @@ export default function ReserveGauge({
 
   return (
     <Panel
-      title="Strategic reserve"
+      title={<Term id="SPR">Strategic reserve</Term>}
       subtitle="Multi-period SPR drawdown LP against a sustained supply gap"
       asOf={data ? `${dailyGap} kbd gap` : undefined}
       caveat={data?.caveat}
@@ -77,7 +78,7 @@ export default function ReserveGauge({
             <Row label="days of cover" value={`${fmt(cover, 1)} d`} />
             <Row label="max pumpout" value={`${fmt(data?.max_pumpout_rate_kbd, 0)} kbd`} />
             <Row
-              label="unserved"
+              label="unserved (cumulative)"
               value={`${fmt(data?.total_unserved_kbd_days, 0)} kbd·d`}
               tone={data && data.total_unserved_kbd_days > 0 ? "bad" : "ok"}
             />

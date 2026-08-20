@@ -4,6 +4,7 @@ import {
   Area,
   CartesianGrid,
   ComposedChart,
+  Legend,
   Line,
   ReferenceLine,
   ResponsiveContainer,
@@ -13,6 +14,7 @@ import {
 } from "recharts";
 import { CriSeries, num } from "../lib/api";
 import Panel from "./Panel";
+import { Term } from "./Term";
 
 const CLOSURE_DATE = "2026-02-28"; // real Hormuz closure onset
 
@@ -38,13 +40,26 @@ export default function CriTimeline({
 
   return (
     <Panel
-      title="Corridor Risk Index"
-      subtitle={`${data.corridor_id} · weights O ${data.weights.O} · S ${data.weights.S} · E ${data.weights.E} · X ${data.weights.X}`}
+      title={<>Corridor Risk Index (<Term id="CRI">CRI</Term>)</>}
+      subtitle={
+        <>
+          <Term id="chokepoint6">{data.corridor_id}</Term> · weights{" "}
+          <Term id="O">O</Term> {data.weights.O} · <Term id="S">S</Term> {data.weights.S} ·{" "}
+          <Term id="E">E</Term> {data.weights.E} · <Term id="X">X</Term> {data.weights.X}
+        </>
+      }
       asOf={data.as_of}
       caveat="Gaps are missing data, not zero — CRI renormalizes its weights over whatever components exist that day. AIS (O) publishes 2–9 days late by nature."
       className="min-h-[300px]"
     >
-      <ResponsiveContainer width="100%" height="100%" minHeight={230}>
+      <p className="text-[11.5px] text-[#c2cfe0] leading-snug mb-2">
+        <span style={{ color: "#4c9aff" }}>Blue (S)</span> and{" "}
+        <span style={{ color: "#f2762e" }}>orange (E)</span> are news-derived and update same-day.{" "}
+        <span style={{ color: "#2dd4a7" }}>Green (O)</span> is satellite ship-tracking, confirmed
+        up to 9 days later. Watch blue/orange rise before green falls — that lead time is the
+        early warning.
+      </p>
+      <ResponsiveContainer width="100%" height="100%" minHeight={200}>
         <ComposedChart
           data={series}
           margin={{ top: 4, right: 8, bottom: 0, left: -18 }}
@@ -92,6 +107,12 @@ export default function CriTimeline({
             label={{ value: "closure", fill: "#f0b429", fontSize: 10, position: "insideTopRight" }}
           />
           {cursorDate && <ReferenceLine x={cursorDate} stroke="#4c9aff" strokeWidth={1.5} />}
+          <Legend
+            wrapperStyle={{ fontSize: 11, color: "#7d8ea6" }}
+            iconType="plainline"
+            verticalAlign="top"
+            height={22}
+          />
           <Area
             type="monotone"
             dataKey="CRI"

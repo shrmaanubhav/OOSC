@@ -2,7 +2,9 @@
 
 import { ProcurementResult, fmt } from "../lib/api";
 import Panel from "./Panel";
+import RecommendedActions from "./RecommendedActions";
 import Sankey from "./Sankey";
+import { Term } from "./Term";
 
 /** The λ slider is the interactive centrepiece: λ scales how much the LP
  *  pays to avoid a high-CRI corridor. Re-solves server-side on every drag
@@ -31,7 +33,13 @@ export default function ProcurementPanel({
   return (
     <Panel
       title="Procurement reallocation"
-      subtitle="Source → refinery allocation LP · minimise cost + λ · CRI, with a per-country concentration cap"
+      subtitle={
+        <>
+          Source → refinery <Term id="LP">allocation LP</Term> · minimise cost +{" "}
+          <Term id="lambda">λ</Term> · <Term id="CRI">CRI</Term>, with a per-country
+          concentration cap
+        </>
+      }
       asOf={data ? `λ=${lambdaRisk}` : undefined}
       caveat={data?.caveat}
       className="min-h-[420px]"
@@ -46,7 +54,7 @@ export default function ProcurementPanel({
           <div>
             <div className="flex items-baseline justify-between mb-1">
               <label className="text-[11px] text-[var(--muted)] uppercase tracking-wide">
-                λ · risk aversion
+                <Term id="lambda">λ · risk aversion</Term>
               </label>
               <span className="mono text-[12px] text-[var(--accent)]">{lambdaRisk}</span>
             </div>
@@ -94,9 +102,11 @@ export default function ProcurementPanel({
           <Sankey
             allocation={data?.allocation ?? []}
             operatorByRefinery={operatorByRefinery}
-            height={260}
+            height={220}
           />
         </div>
+
+        <RecommendedActions allocation={data?.allocation ?? []} />
       </div>
     </Panel>
   );
