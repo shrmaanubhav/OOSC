@@ -16,7 +16,7 @@ Work stops after each phase for review — do not chain into the next phase with
 | 3 | Event extractor + Corridor Risk Index | ✅ Done |
 | 4 | Digital twin + PPAC parsing | ✅ Done |
 | 5 | Scenario cascade, procurement LP, reserve LP | ✅ Done |
-| 6 | Backtest + provenance validator | ⬜ Not started |
+| 6 | Backtest + provenance validator | ✅ Done |
 | 7 | Agent loop + tools | ⬜ Not started |
 | 8 | Frontend | ⬜ Not started |
 | 9 | Demo rehearsal + polish | ⬜ Not started |
@@ -92,7 +92,7 @@ Python via `uv`, Next.js 15 in `web/`, directory structure, `.gitignore`, `PLAN.
 
 **Exit criterion:** a real AUC number exists and is defensible; deliberately feeding the agent a question with no backing data produces a visible provenance violation.
 
-**Status:** Not started.
+**Status:** Done. `core/backtest.py` fits a single-feature (CRI/100 → risk) logistic calibration on the real Bab el-Mandeb/Houthi crisis (Oct 2023–Feb 2024, chokepoint4) and validates out-of-sample on the real Hormuz closure (Feb–Aug 2026, chokepoint6): AUC 0.979 at h=7, 0.919 at h=14, undefined at h=30 (the closure is sustained enough that almost every validation-window day is a positive at that horizon — reported honestly rather than faked). Disruption labels use a corridor-specific threshold (each corridor's own pre-crisis 95th-percentile O, floored at 0.02) rather than one global cutoff, because chokepoint4's baseline AIS noise is ~0 while chokepoint6's is ~0.22 — a real, reported asymmetry, as is the fact that the fit window's CRI is O-only (GDELT/X don't reach back to 2023–24) while the validation window has the full O/S/E/X index. Found and fixed a real bug along the way: `core/risk.py`'s `compute_E` returned a fabricated neutral 0.5 (not NaN) for any date before an extraction run's earliest known event, silently treating "no event data yet" as "confirmed calm" — this was collapsing the fit window's CRI into a narrow band and blowing up the logistic fit's coefficients (classic quasi-separation); fixed by returning NaN pre-coverage, plus added L2 regularization to `fit_logistic` since a small, near-separable sample will always be prone to this. `agent/provenance.py` extracts every numeral from a response and checks it traces (within tolerance) to a number that actually appeared in the tool results passed to it; self-check and `main()` both demonstrate a grounded response producing zero violations and a fabricated figure ($42 billion) producing a visible, named violation.
 
 ---
 

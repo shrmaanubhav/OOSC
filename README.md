@@ -6,7 +6,7 @@ closure that began 28 Feb 2026 and was still ongoing as of this build
 (19–20 Aug 2026). Full background, architecture rationale, and formulas
 live in `PLAN.md` (phase index) and the design doc referenced there;
 this file is about running and understanding what exists **right now**
-(Phases 0–5 complete).
+(Phases 0–6 complete).
 
 ## What's built so far
 
@@ -23,7 +23,13 @@ this file is about running and understanding what exists **right now**
    impact (import bill, %GDP, CPI) — every number sourced or flagged,
    and a **reserve drawdown LP** showing days-of-cover under a shock.
 
-Phases 6–9 (backtest, agent/chat layer, frontend) are not built yet.
+5. **A backtest** (`core/backtest.py`) calibrating the CRI against a real,
+   different crisis (Red Sea/Bab el-Mandeb, Oct 2023–Feb 2024) and
+   validating out-of-sample against the real Hormuz closure, plus a
+   **provenance validator** (`agent/provenance.py`) that catches any
+   number an agent response can't trace back to an actual tool result.
+
+Phases 7–9 (agent/chat layer, frontend, demo polish) are not built yet.
 
 ## Prerequisites
 
@@ -110,6 +116,30 @@ uv run python core/procurement.py   # just the allocation LP, incl. the λ/μ me
 uv run python core/reserve.py       # SPR drawdown schedule under a supply gap
 ```
 
+## Backtest and provenance
+
+```bash
+uv run python core/backtest.py
+```
+
+Fits a logistic CRI-to-disruption-probability calibration on the real
+Red Sea/Bab el-Mandeb crisis (Oct 2023–Feb 2024) and validates it
+out-of-sample on the real Hormuz closure (Feb–Aug 2026), reporting AUC
+and a reliability curve for h=7/14/30 days. Prints the real numbers
+(AUC 0.979 at h=7, 0.919 at h=14, undefined at h=30 once the closure
+makes almost every validation day a positive) plus the honest caveats:
+the fit window's CRI is O-only (GDELT didn't reach back to 2023–24) and
+each corridor uses its own noise-floor-calibrated disruption threshold.
+
+```bash
+uv run python agent/provenance.py
+```
+
+Runs the provenance validator against a grounded response (zero
+violations) and an adversarial one with a fabricated figure (a named,
+visible violation) — this is what Phase 7's agent loop will run every
+response through before it reaches the user.
+
 ## Re-running ingestion (optional — only if you want fresh data)
 
 Each script is independently runnable and idempotent. Run in this order
@@ -158,8 +188,8 @@ rate-limit handling, graph construction, LP correctness, ...):
 
 ```bash
 for f in ingest/portwatch.py ingest/gdelt.py ingest/gdelt_bigquery.py ingest/ppac.py \
-         agent/llm.py agent/extractor.py core/risk.py core/twin.py \
-         core/procurement.py core/scenario.py core/reserve.py; do
+         agent/llm.py agent/extractor.py agent/provenance.py core/risk.py core/twin.py \
+         core/procurement.py core/scenario.py core/reserve.py core/backtest.py; do
   uv run python "$f" --self-check
 done
 ```
@@ -231,3 +261,14 @@ arithmetic, etc.) — worth reading if you're extending this.
   pass-through, which ignores India's active fuel-excise-duty cushioning.
   All disclosed in each output's `confidence`/`method` field, not just
   here.
+- **The backtest calibrates on one crisis and validates on a different
+  one of a different character.** Bab el-Mandeb (Oct 2023–Feb 2024) was
+  a rerouting event — ships avoided the strait, but AIS transit counts
+  never collapsed the way Hormuz's did — so the fit window's CRI is
+  O-only (no GDELT coverage that far back) and uses a much lower
+  disruption threshold than the validation window. AUC is real and
+  strong at h=7/14 but undefined at h=30 (the validation window becomes
+  almost entirely positive-label once the closure is sustained), and the
+  reliability curve shows the calibration transferred from Bab
+  el-Mandeb's narrower CRI range is under-confident on Hormuz's wider
+  one — a genuine cross-corridor transfer limitation, not smoothed over.

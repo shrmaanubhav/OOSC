@@ -114,7 +114,12 @@ def compute_E(corridor_id: str, index: pd.DatetimeIndex, scale: float = 5.0) -> 
         e_raw += decay * s_val
 
     e = (1 + np.tanh(e_raw / scale)) / 2
-    return pd.Series(e.values, index=index, name="E")
+    # Dates before extraction's earliest event have zero decayed severity
+    # by construction (no event has happened "yet"), which would otherwise
+    # read as a fabricated neutral E=0.5 -- that's "no data", not "confirmed
+    # calm", so it must be NaN like the empty-events case above, not a value.
+    e = np.where(index < events["event_date"].min(), np.nan, e)
+    return pd.Series(e, index=index, name="E")
 
 
 def compute_X(corridor_id: str) -> float:
