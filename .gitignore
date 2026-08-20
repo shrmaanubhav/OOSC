@@ -5,6 +5,8 @@ __pycache__/
 
 # data — raw pulls are gitignored, snapshots are committed deliberately
 data/raw/
+# per-URL LLM response cache: ephemeral, regenerable, not demo-critical
+data/snapshots/events/cache/
 
 # secrets
 .env

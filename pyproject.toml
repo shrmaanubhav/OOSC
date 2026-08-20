@@ -4,8 +4,10 @@ version = "0.1.0"
 description = "Project Sentinel — AI-driven energy supply-chain resilience for India"
 requires-python = ">=3.12"
 dependencies = [
+    "db-dtypes>=1.7.1",
     "duckdb>=1.5.5",
     "fastapi>=0.141.1",
+    "google-cloud-bigquery>=3.43.0",
     "google-genai>=2.19.0",
     "groq>=1.6.0",
     "httpx>=0.28.1",

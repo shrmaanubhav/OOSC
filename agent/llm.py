@@ -14,15 +14,17 @@ See .env.example for the full list and where to get each key.
 from __future__ import annotations
 
 import os
+import re
+import time
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
 DEFAULT_MODELS = {
-    "groq": "llama-3.1-8b-instant",
+    "groq": "openai/gpt-oss-20b",  # llama-3.1-8b-instant was retired; verified live 2026-08-20
     "openai": "gpt-4.1-mini",
-    "gemini": "gemini-2.0-flash",
+    "gemini": "gemini-3.6-flash",  # gemini-2.0-flash retired; verified live 2026-08-20
 }
 API_KEY_ENV_VARS = {
     "groq": "GROQ_API_KEY",
@@ -72,16 +74,38 @@ def _strip_code_fence(text: str) -> str:
     return text.strip()
 
 
-def _chat_groq(system: str, user: str, max_tokens: int) -> str:
-    from groq import Groq
+def _chat_groq(system: str, user: str, max_tokens: int, retries: int = 5) -> str:
+    from groq import Groq, RateLimitError
 
     client = Groq()
-    resp = client.chat.completions.create(
-        model=model(),
-        max_tokens=max_tokens,
-        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-    )
-    return resp.choices[0].message.content or ""
+    for attempt in range(retries):
+        try:
+            resp = client.chat.completions.create(
+                model=model(),
+                max_tokens=max_tokens,
+                # the default model (openai/gpt-oss-20b) is a reasoning model
+                # that otherwise burns its whole token budget on chain-of-
+                # thought and returns empty content with finish_reason=
+                # "length" -- verified live, this single param fixed it
+                # (298 reasoning tokens -> 44)
+                reasoning_effort="low",
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            )
+            return resp.choices[0].message.content or ""
+        except RateLimitError as exc:
+            # free-tier TPM limits are low (8000 TPM observed for
+            # openai/gpt-oss-20b) and shared across concurrent callers --
+            # Groq's error message includes a "try again in Xs" hint
+            wait = _parse_retry_seconds(str(exc)) or (2**attempt)
+            if attempt == retries - 1:
+                raise
+            time.sleep(wait)
+    return ""  # unreachable, satisfies type checkers
+
+
+def _parse_retry_seconds(message: str) -> float | None:
+    match = re.search(r"try again in ([\d.]+)s", message)
+    return float(match.group(1)) + 0.5 if match else None
 
 
 def _chat_openai(system: str, user: str, max_tokens: int) -> str:
@@ -118,7 +142,7 @@ def _self_check() -> None:
     os.environ["LLM_PROVIDER"] = "groq"
     os.environ.pop("LLM_MODEL", None)
     assert provider() == "groq"
-    assert model() == "llama-3.1-8b-instant"
+    assert model() == "openai/gpt-oss-20b"
     assert api_key_env_var() == "GROQ_API_KEY"
 
     os.environ["LLM_PROVIDER"] = "openai"
