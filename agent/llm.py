@@ -93,9 +93,14 @@ def _chat_groq(system: str, user: str, max_tokens: int, retries: int = 5) -> str
             )
             return resp.choices[0].message.content or ""
         except RateLimitError as exc:
-            # free-tier TPM limits are low (8000 TPM observed for
-            # openai/gpt-oss-20b) and shared across concurrent callers --
-            # Groq's error message includes a "try again in Xs" hint
+            # two distinct free-tier ceilings observed live for
+            # openai/gpt-oss-20b: 8000 TPM (worth backing off and
+            # retrying) and 200,000 TPD (a daily cap -- retrying within
+            # the same process cannot help, the wait is hours not
+            # seconds, so fail fast and let the caller decide whether to
+            # skip this item rather than burn the whole retry budget)
+            if "tokens per day" in str(exc).lower():
+                raise
             wait = _parse_retry_seconds(str(exc)) or (2**attempt)
             if attempt == retries - 1:
                 raise

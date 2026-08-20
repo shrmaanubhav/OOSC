@@ -21,6 +21,7 @@ import json
 import os
 import re
 import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -174,9 +175,22 @@ def extract_all(articles: pd.DataFrame, classify_fn, workers: int = 4) -> pd.Dat
     a wider pool just means more callers queued on 429 retries, not more
     real throughput -- the ceiling is token budget, not connection count."""
     articles_list = [row.to_dict() for _, row in articles.iterrows()]
+    give_up = threading.Event()  # tripped once, e.g., a daily token cap is hit --
+    # further calls would fail identically, so stop spending network round-trips
+    failures = 0
 
     def _process(article: dict) -> dict | None:
-        event = classify_article(article, classify_fn)
+        nonlocal failures
+        if give_up.is_set():
+            return None
+        try:
+            event = classify_article(article, classify_fn)
+        except Exception as exc:
+            failures += 1
+            if "tokens per day" in str(exc).lower():
+                give_up.set()
+                print(f"[extractor]   daily token cap hit -- stopping early: {exc}")
+            return None
         if event:
             event["corridor_id"] = article.get("corridor_id")
             event["event_date"] = _get_date(article)
@@ -187,7 +201,24 @@ def extract_all(articles: pd.DataFrame, classify_fn, workers: int = 4) -> pd.Dat
         for event in pool.map(_process, articles_list):
             if event:
                 events.append(event)
+    if failures:
+        print(f"[extractor]   {failures}/{len(articles_list)} articles failed classification (see above)")
     return pd.DataFrame(events)
+
+
+def _cap_per_corridor(articles: pd.DataFrame, cap: int) -> pd.DataFrame:
+    """MVP scope: Groq's free-tier TPM/TPD caps make an uncapped multi-
+    thousand-article backfill impractical (see extract_all). cap=0 means
+    no cap. NOT groupby(...).apply(lambda g: g) -- verified live, that
+    silently drops the corridor_id grouping column in this pandas
+    version, which broke every downstream corridor_id lookup."""
+    if not cap or "corridor_id" not in articles.columns:
+        return articles
+    parts = [
+        group if len(group) <= cap else group.sample(cap, random_state=0)
+        for _, group in articles.groupby("corridor_id")
+    ]
+    return pd.concat(parts, ignore_index=True)
 
 
 def main() -> None:
@@ -216,16 +247,13 @@ def main() -> None:
     # per-corridor volume so a normal run finishes in tens of minutes;
     # override with EXTRACTOR_MAX_PER_CORRIDOR in .env (0 = no cap).
     cap = int(os.environ.get("EXTRACTOR_MAX_PER_CORRIDOR", "500"))
-    if cap and "corridor_id" in articles.columns:
-        before = len(articles)
-        articles = articles.groupby("corridor_id", group_keys=False).apply(
-            lambda g: g if len(g) <= cap else g.sample(cap, random_state=0)
+    before = len(articles)
+    articles = _cap_per_corridor(articles, cap)
+    if len(articles) < before:
+        print(
+            f"[extractor] capped {before} -> {len(articles)} articles "
+            f"({cap}/corridor; set EXTRACTOR_MAX_PER_CORRIDOR=0 for no cap)"
         )
-        if len(articles) < before:
-            print(
-                f"[extractor] capped {before} -> {len(articles)} articles "
-                f"({cap}/corridor; set EXTRACTOR_MAX_PER_CORRIDOR=0 for no cap)"
-            )
 
     print(f"[extractor] classifying {len(articles)} articles from {articles_path.name} ({llm.provider()}/{llm.model()})...")
     events = extract_all(articles, _live_classify_fn)
@@ -239,6 +267,14 @@ def _self_check() -> None:
     malformed-enum rejection against a stub classifier."""
     import shutil
     import tempfile
+
+    cap_test = pd.DataFrame(
+        {"corridor_id": ["a"] * 5 + ["b"] * 3, "url": [f"u{i}" for i in range(8)]}
+    )
+    capped = _cap_per_corridor(cap_test, cap=3)
+    assert "corridor_id" in capped.columns, "corridor_id column was dropped"
+    assert capped["corridor_id"].value_counts().to_dict() == {"a": 3, "b": 3}
+    assert _cap_per_corridor(cap_test, cap=0) is cap_test  # 0 = no cap, unchanged
 
     global CACHE_DIR
     original_cache_dir = CACHE_DIR
