@@ -13,6 +13,7 @@ See .env.example for the full list and where to get each key.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import time
@@ -63,6 +64,143 @@ def chat(system: str, user: str, max_tokens: int = 300) -> str:
     else:
         text = _chat_gemini(system, user, max_tokens)
     return _strip_code_fence(text)
+
+
+def chat_tools(
+    system: str, messages: list[dict], tool_schemas: list[dict], max_tokens: int = 1200
+) -> dict:
+    """Multi-turn turn with native function calling. Returns either
+    {"tool": name, "args": {...}, "id": str} or {"text": "..."}.
+
+    `messages` is a provider-neutral transcript of
+    {"role": "user"|"assistant"|"tool", "content": str, ...} -- each
+    provider adapter below translates it. Native function calling is used
+    rather than asking for JSON in prose because some models (verified
+    live: groq's openai/gpt-oss-20b) route any tool-shaped intent through
+    their own tool channel regardless of instructions, and error out with
+    'Tool choice is none, but model called a tool' when no schema was
+    supplied. Fighting that with prompt wording is fragile; giving the
+    model the channel it expects is not.
+
+    `tool_schemas` is OpenAI-shaped (agent/tools.py's schemas()); the
+    Gemini adapter converts it.
+    """
+    p = provider()
+    if p in ("groq", "openai"):
+        return _chat_tools_openai_shaped(p, system, messages, tool_schemas, max_tokens)
+    return _chat_tools_gemini(system, messages, tool_schemas, max_tokens)
+
+
+def _chat_tools_openai_shaped(
+    p: str, system: str, messages: list[dict], tool_schemas: list[dict], max_tokens: int
+) -> dict:
+    if p == "groq":
+        from groq import Groq
+
+        client, extra = Groq(), {"reasoning_effort": "low"}
+        token_arg = "max_tokens"
+    else:
+        from openai import OpenAI
+
+        client, extra = OpenAI(), {}
+        token_arg = "max_completion_tokens"
+
+    payload = [{"role": "system", "content": system}]
+    for m in messages:
+        if m["role"] == "tool":
+            payload.append(
+                {"role": "tool", "tool_call_id": m["tool_call_id"], "content": m["content"]}
+            )
+        elif m["role"] == "assistant" and m.get("tool_call"):
+            tc = m["tool_call"]
+            payload.append({
+                "role": "assistant",
+                "content": m.get("content") or None,
+                "tool_calls": [{
+                    "id": tc["id"], "type": "function",
+                    "function": {"name": tc["name"], "arguments": json.dumps(tc["args"])},
+                }],
+            })
+        else:
+            payload.append({"role": m["role"], "content": m["content"]})
+
+    resp = client.chat.completions.create(
+        model=model(), messages=payload, tools=tool_schemas,
+        **{token_arg: max_tokens}, **extra,
+    )
+    choice = resp.choices[0].message
+    if getattr(choice, "tool_calls", None):
+        tc = choice.tool_calls[0]
+        try:
+            args = json.loads(tc.function.arguments or "{}")
+        except json.JSONDecodeError:
+            args = {}
+        return {"tool": tc.function.name, "args": args, "id": tc.id}
+    return {"text": choice.content or ""}
+
+
+def _chat_tools_gemini(
+    system: str, messages: list[dict], tool_schemas: list[dict], max_tokens: int
+) -> dict:
+    from google import genai
+    from google.genai import types
+
+    declarations = [
+        types.FunctionDeclaration(
+            name=s["function"]["name"],
+            description=s["function"]["description"],
+            parameters=s["function"]["parameters"],
+        )
+        for s in tool_schemas
+    ]
+
+    contents = []
+    for m in messages:
+        if m["role"] == "tool":
+            contents.append(
+                types.Content(role="user", parts=[types.Part.from_function_response(
+                    name=m["name"], response={"result": m["content"]}
+                )])
+            )
+        elif m["role"] == "assistant" and m.get("tool_call"):
+            tc = m["tool_call"]
+            # Replay the model's ORIGINAL part, not a reconstruction.
+            # Gemini 3.x rejects a rebuilt functionCall that has lost its
+            # thought_signature ("Function call is missing a
+            # thought_signature in functionCall parts", verified live).
+            part = tc.get("_raw") or types.Part.from_function_call(
+                name=tc["name"], args=tc["args"]
+            )
+            contents.append(types.Content(role="model", parts=[part]))
+        else:
+            role = "model" if m["role"] == "assistant" else "user"
+            contents.append(types.Content(role=role, parts=[types.Part.from_text(text=m["content"])]))
+
+    # bind the client to a name -- an inlined genai.Client().models.…
+    # call can have the temporary client closed out from under the request
+    # ("Cannot send a request, as the client has been closed", seen live)
+    client = genai.Client()
+    resp = client.models.generate_content(
+        model=model(),
+        contents=contents,
+        config=types.GenerateContentConfig(
+            system_instruction=system,
+            max_output_tokens=max_tokens,
+            tools=[types.Tool(function_declarations=declarations)] if declarations else None,
+            # this module runs the tool loop itself (agent/loop.py enforces
+            # the step budget and provenance check); letting the SDK also
+            # auto-execute would bypass both
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+        ),
+    )
+    for part in (resp.candidates[0].content.parts or []):
+        if getattr(part, "function_call", None):
+            fc = part.function_call
+            # Gemini namespaces declared tools ("default_api:get_cri");
+            # strip it so callers see the name they registered.
+            name = fc.name.split(":")[-1]
+            return {"tool": name, "args": dict(fc.args or {}), "id": fc.name, "_raw": part}
+    return {"text": resp.text or ""}
 
 
 def _strip_code_fence(text: str) -> str:
