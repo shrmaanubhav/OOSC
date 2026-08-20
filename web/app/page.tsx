@@ -7,8 +7,10 @@ import CriTimeline from "./components/CriTimeline";
 import FlowMap from "./components/FlowMap";
 import ImpactWaterfall from "./components/ImpactWaterfall";
 import OnboardingStrip from "./components/OnboardingStrip";
+import Panel from "./components/Panel";
 import ProcurementPanel from "./components/ProcurementPanel";
 import ReserveGauge from "./components/ReserveGauge";
+import SidebarNav, { PanelKey } from "./components/SidebarNav";
 import {
   BacktestResult,
   BypassRoutes,
@@ -126,10 +128,13 @@ export default function Dashboard() {
 
   const criNow = cri.chokepoint6?.series.find((p) => p.date === cursorDate)?.CRI ?? null;
   const [showMethodology, setShowMethodology] = useState(false);
+  // "map" default per the demo brief: the flow map is the most orienting
+  // entry point, and it's what the header's corridor chips already point at.
+  const [activePanel, setActivePanel] = useState<PanelKey>("map");
 
   return (
-    <main className="min-h-screen p-4 lg:p-5 max-w-[1800px] mx-auto">
-      <header className="flex flex-wrap items-end justify-between gap-3 mb-4">
+    <main className="h-screen flex flex-col p-4 lg:p-5 max-w-[1900px] mx-auto w-full">
+      <header className="flex flex-wrap items-end justify-between gap-3 mb-4 shrink-0">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-[19px] font-semibold tracking-tight">
@@ -186,7 +191,7 @@ export default function Dashboard() {
       </header>
 
       {err && (
-        <div className="panel px-4 py-3 mb-4 border-[#e5484d55] bg-[#e5484d12]">
+        <div className="panel px-4 py-3 mb-4 border-[#e5484d55] bg-[#e5484d12] shrink-0">
           <p className="text-[12.5px] text-[var(--bad)]">
             Can’t reach the API ({err}). Start it with{" "}
             <code className="mono">uv run python api/main.py</code>.
@@ -194,10 +199,12 @@ export default function Dashboard() {
         </div>
       )}
 
-      <OnboardingStrip />
+      <div className="shrink-0">
+        <OnboardingStrip />
+      </div>
 
       {showMethodology && (
-        <section className="panel mt-0 mb-4 px-4 py-3 border-[var(--accent)]/40">
+        <section className="panel mt-0 mb-4 px-4 py-3 border-[var(--accent)]/40 shrink-0">
           <h3 className="text-[11px] uppercase tracking-wide text-[var(--foreground)] mb-2 font-semibold">
             Methodology &amp; known limitations
           </h3>
@@ -247,89 +254,105 @@ export default function Dashboard() {
         </section>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2 flex flex-col gap-4">
-          <FlowMap
-            twin={twin}
-            allocation={proc?.allocation ?? []}
-            cri={cri}
-            cursorDate={cursorDate}
-            onCursorChange={onCursorChange}
-          />
-          {cri.chokepoint6 && (
+      {/* Single-panel-focus body: a left rail picks which one panel shows in
+          the main area; the Analyst stays docked on the right at all times,
+          regardless of which panel is focused -- it's the constant surface,
+          not one card among seven. */}
+      <div className="flex-1 min-h-0 flex flex-col xl:flex-row gap-4">
+        <SidebarNav active={activePanel} onChange={setActivePanel} />
+
+        <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
+          {activePanel === "map" && (
+            <FlowMap
+              twin={twin}
+              allocation={proc?.allocation ?? []}
+              cri={cri}
+              cursorDate={cursorDate}
+              onCursorChange={onCursorChange}
+            />
+          )}
+          {activePanel === "risk" && cri.chokepoint6 && (
             <CriTimeline
               data={cri.chokepoint6}
               cursorDate={cursorDate}
               onCursorChange={onCursorChange}
             />
           )}
-          <ProcurementPanel
-            data={proc}
-            lambdaRisk={lambdaRisk}
-            onLambdaChange={setLambdaRisk}
-            antiConcentration={antiConc}
-            onAntiConcentrationChange={setAntiConc}
-            operatorByRefinery={operatorByRefinery}
-            loading={procLoading}
-          />
+          {activePanel === "procurement" && (
+            <ProcurementPanel
+              data={proc}
+              lambdaRisk={lambdaRisk}
+              onLambdaChange={setLambdaRisk}
+              antiConcentration={antiConc}
+              onAntiConcentrationChange={setAntiConc}
+              operatorByRefinery={operatorByRefinery}
+              loading={procLoading}
+            />
+          )}
+          {activePanel === "impact" && (
+            <ImpactWaterfall
+              data={scenario}
+              severity={severity}
+              onSeverityChange={setSeverity}
+              compliance={compliance}
+              onComplianceChange={setCompliance}
+              secondCorridor={secondCorridor}
+              onSecondCorridorChange={setSecondCorridor}
+              loading={scenLoading}
+            />
+          )}
+          {activePanel === "reserve" && (
+            <ReserveGauge
+              data={reserve}
+              dailyGap={dailyGap}
+              onDailyGapChange={setDailyGap}
+              loading={resLoading}
+            />
+          )}
+          {activePanel === "backtest" && <BacktestPanel data={backtest} />}
+          {activePanel === "bypass" && (
+            <Panel
+              title="Bypass routes"
+              subtitle="And where their cargo actually ends up"
+              className="min-h-[440px] h-full"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {(bypass?.routes ?? []).map((r) => {
+                  const coupled = r.discharge_corridor !== "none";
+                  return (
+                    <div
+                      key={r.route_name}
+                      className="bg-[var(--panel-2)] border rounded-md px-3 py-2.5"
+                      style={{ borderColor: coupled ? "#f0b42955" : "var(--border)" }}
+                    >
+                      <div className="text-[12.5px] leading-tight">{r.route_name}</div>
+                      <div className="mono text-[15px] mt-1.5">
+                        {r.capacity_kbd == null ? "—" : `${fmt(r.capacity_kbd, 0)} kbd`}
+                      </div>
+                      <div className="asof mt-1.5 leading-snug">
+                        {coupled ? (
+                          <span className="text-[var(--warn)]">
+                            ⚠ discharges via {r.discharge_corridor} — not a clean bypass
+                          </span>
+                        ) : (
+                          <span className="text-[var(--ok)]">✓ outside all modeled corridors</span>
+                        )}
+                        <div className="mt-0.5">{r.status}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Panel>
+          )}
         </div>
 
-        <div className="flex flex-col gap-4">
-          <ImpactWaterfall
-            data={scenario}
-            severity={severity}
-            onSeverityChange={setSeverity}
-            compliance={compliance}
-            onComplianceChange={setCompliance}
-            secondCorridor={secondCorridor}
-            onSecondCorridorChange={setSecondCorridor}
-            loading={scenLoading}
-          />
+        <div className="xl:w-[400px] w-full xl:h-full shrink-0">
           <AgentPanel />
-          <ReserveGauge
-            data={reserve}
-            dailyGap={dailyGap}
-            onDailyGapChange={setDailyGap}
-            loading={resLoading}
-          />
-          <BacktestPanel data={backtest} />
         </div>
       </div>
 
-      <section className="panel mt-4 px-4 py-3">
-        <h3 className="text-[11px] uppercase tracking-wide text-[var(--muted)] mb-2">
-          Bypass routes — and where their cargo actually ends up
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5">
-          {(bypass?.routes ?? []).map((r) => {
-            const coupled = r.discharge_corridor !== "none";
-            return (
-              <div
-                key={r.route_name}
-                className="bg-[var(--panel-2)] border rounded-md px-3 py-2"
-                style={{ borderColor: coupled ? "#f0b42955" : "var(--border)" }}
-              >
-                <div className="text-[11.5px] leading-tight">{r.route_name}</div>
-                <div className="mono text-[13px] mt-1">
-                  {r.capacity_kbd == null ? "—" : `${fmt(r.capacity_kbd, 0)} kbd`}
-                </div>
-                <div className="asof mt-1 leading-snug">
-                  {coupled ? (
-                    <span className="text-[var(--warn)]">
-                      ⚠ discharges via {r.discharge_corridor} — not a clean bypass
-                    </span>
-                  ) : (
-                    <span className="text-[var(--ok)]">✓ outside all modeled corridors</span>
-                  )}
-                  <div className="mt-0.5">{r.status}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      <footer className="asof mt-4 leading-relaxed border-t border-[var(--border)] pt-3">
+      <footer className="asof mt-3 leading-relaxed border-t border-[var(--border)] pt-2 shrink-0">
         Full methodology and limitations: click{" "}
         <button
           onClick={() => setShowMethodology(true)}

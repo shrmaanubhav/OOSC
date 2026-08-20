@@ -42,7 +42,7 @@ export default function ProcurementPanel({
       }
       asOf={data ? `λ=${lambdaRisk}` : undefined}
       caveat={data?.caveat}
-      className="min-h-[420px]"
+      className="min-h-[560px] h-full"
       right={
         loading ? <span className="asof">solving…</span> : (
           <span className="asof mono">{data?.status ?? ""}</span>
@@ -98,11 +98,17 @@ export default function ProcurementPanel({
           />
         </div>
 
+        <p className="text-[11.5px] text-[#c2cfe0] leading-snug">
+          Band height = allocated <Term id="kbd">volume</Term>. Left = source country, right =
+          refinery operator; ribbon width between them = <Term id="kbd">kbd</Term> flowing on that
+          source → operator pair.
+        </p>
+
         <div className="flex-1 min-h-0 overflow-hidden">
           <Sankey
             allocation={data?.allocation ?? []}
             operatorByRefinery={operatorByRefinery}
-            height={220}
+            height={300}
           />
         </div>
 

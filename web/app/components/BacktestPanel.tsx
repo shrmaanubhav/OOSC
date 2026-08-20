@@ -31,7 +31,7 @@ export default function BacktestPanel({ data }: { data: BacktestResult | null })
         data ? `fit: ${data.fit_window} → validate: ${data.validation_window}` : "loading…"
       }
       caveat={data?.caveat}
-      className="min-h-[330px]"
+      className="min-h-[440px] h-full"
     >
       <div className="flex flex-col h-full gap-3">
         <p className="text-[12px] text-[#c2cfe0] leading-relaxed">
@@ -69,9 +69,13 @@ export default function BacktestPanel({ data }: { data: BacktestResult | null })
           ))}
         </div>
 
-        <div className="flex-1 min-h-[130px]">
-          <p className="asof mb-1">
-            Reliability, h=7 · diagonal = perfectly calibrated
+        <div className="flex-1 min-h-[220px]">
+          <p className="text-[11.5px] text-[#c2cfe0] leading-snug mb-1.5">
+            Reliability, h=7 days. <b className="text-[var(--foreground)]">X axis</b> = the
+            model&apos;s predicted probability of disruption. <b className="text-[var(--foreground)]">Y
+            axis</b> = how often disruption actually happened in that predicted-probability
+            bucket. Dot size = how many corridor-days fall in that bucket. On the diagonal =
+            perfectly calibrated.
           </p>
           <ResponsiveContainer width="100%" height="100%">
             <ScatterChart margin={{ top: 4, right: 10, bottom: 2, left: -22 }}>

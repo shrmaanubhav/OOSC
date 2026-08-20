@@ -36,7 +36,7 @@ export default function ReserveGauge({
       subtitle="Multi-period SPR drawdown LP against a sustained supply gap"
       asOf={data ? `${dailyGap} kbd gap` : undefined}
       caveat={data?.caveat}
-      className="min-h-[330px]"
+      className="min-h-[440px] h-full"
       right={loading ? <span className="asof">solving…</span> : undefined}
     >
       <div className="flex flex-col h-full gap-3">
@@ -103,14 +103,30 @@ export default function ReserveGauge({
           />
         </div>
 
-        <div className="h-[92px]">
+        <p className="text-[11.5px] text-[#c2cfe0] leading-snug">
+          <b className="text-[var(--foreground)]">X axis</b> = days since the shock begins.{" "}
+          <b className="text-[var(--foreground)]">Y axis</b> = remaining SPR stock, in thousand
+          barrels — the gauge above reduces this same curve to one number: the day it hits zero.
+        </p>
+
+        <div className="h-[180px]">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={data?.schedule ?? []}
               margin={{ top: 4, right: 4, bottom: 0, left: -30 }}
             >
-              <XAxis dataKey="day" tick={{ fill: "#7d8ea6", fontSize: 9 }} stroke="#223044" />
-              <YAxis tick={{ fill: "#7d8ea6", fontSize: 9 }} stroke="#223044" width={44} />
+              <XAxis
+                dataKey="day"
+                tick={{ fill: "#7d8ea6", fontSize: 9 }}
+                stroke="#223044"
+                label={{ value: "days", position: "insideBottomRight", fill: "#7d8ea6", fontSize: 9, offset: -2 }}
+              />
+              <YAxis
+                tick={{ fill: "#7d8ea6", fontSize: 9 }}
+                stroke="#223044"
+                width={48}
+                label={{ value: "kb stock", angle: -90, position: "insideLeft", fill: "#7d8ea6", fontSize: 9 }}
+              />
               <Tooltip
                 contentStyle={{
                   background: "#111823",

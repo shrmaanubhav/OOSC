@@ -6,6 +6,7 @@ import { ArcLayer, GeoJsonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/la
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Allocation, CriSeries, TwinGraph, riskRgb } from "../lib/api";
 import Panel from "./Panel";
+import { Term } from "./Term";
 
 const INITIAL_VIEW = { longitude: 62, latitude: 19, zoom: 3.05, pitch: 28, bearing: 0 };
 
@@ -194,7 +195,7 @@ export default function FlowMap({
       subtitle="Allocation arcs from the procurement LP · corridor dots coloured by CRI on the scrubbed date"
       asOf={cursorDate}
       caveat="Sources and refineries are drawn at their shipping corridor / discharge port — the twin geocodes corridors and ports, not fields and plants."
-      className="min-h-[420px]"
+      className="min-h-[560px] h-full"
       right={
         <button
           onClick={() => setPlaying((p) => !p)}
@@ -205,9 +206,13 @@ export default function FlowMap({
       }
     >
       <div className="flex flex-col h-full gap-2">
+        <p className="text-[11.5px] text-[#c2cfe0] leading-snug">
+          Arc width = allocated kbd. Arc/dot color = <Term id="CRI">CRI</Term> on the scrubbed
+          date — same red-to-green risk scale used everywhere on this dashboard.
+        </p>
         <div
           ref={boxRef}
-          className="relative flex-1 min-h-[300px] rounded-md overflow-hidden border border-[var(--border)]"
+          className="relative flex-1 min-h-[420px] rounded-md overflow-hidden border border-[var(--border)]"
         >
           <DeckGL
             initialViewState={INITIAL_VIEW}

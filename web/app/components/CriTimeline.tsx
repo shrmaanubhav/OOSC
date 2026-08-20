@@ -50,7 +50,7 @@ export default function CriTimeline({
       }
       asOf={data.as_of}
       caveat="Gaps are missing data, not zero — CRI renormalizes its weights over whatever components exist that day. AIS (O) publishes 2–9 days late by nature."
-      className="min-h-[300px]"
+      className="min-h-[420px] h-full"
     >
       <p className="text-[11.5px] text-[#c2cfe0] leading-snug mb-2">
         <span style={{ color: "#4c9aff" }}>Blue (S)</span> and{" "}

@@ -87,7 +87,7 @@ export default function AgentPanel() {
       title="Analyst"
       subtitle="Bounded tool-calling loop · every number checked against tool output in code"
       right={badge}
-      className="min-h-[420px]"
+      className="min-h-[420px] h-full"
       caveat={
         prov?.violation
           ? `Untraceable numbers: ${prov.orphans.join(", ")} — these did not match any tool result and should not be trusted.`

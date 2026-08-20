@@ -83,7 +83,7 @@ export default function ImpactWaterfall({
       }
       asOf={data ? `severity ${severity.toFixed(2)}` : undefined}
       caveat={data?.confidence?.macro}
-      className="min-h-[400px]"
+      className="min-h-[460px] h-full"
       right={loading ? <span className="asof">running…</span> : undefined}
     >
       <div className="flex flex-col h-full gap-3">
@@ -127,7 +127,13 @@ export default function ImpactWaterfall({
           </label>
         </div>
 
-        <div className="h-[170px]">
+        <p className="text-[11.5px] text-[#c2cfe0] leading-snug">
+          <b className="text-[var(--foreground)]">Y axis</b> = USD per barrel of the Indian crude
+          basket. Each bar is a running total, not a separate value — Baseline + Shock Δ =
+          Scenario.
+        </p>
+
+        <div className="h-[220px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={bars} margin={{ top: 16, right: 8, bottom: 0, left: -20 }}>
               <CartesianGrid stroke="#223044" strokeDasharray="2 4" vertical={false} />
@@ -135,8 +141,9 @@ export default function ImpactWaterfall({
               <YAxis
                 tick={{ fill: "#7d8ea6", fontSize: 10 }}
                 stroke="#223044"
-                width={46}
+                width={52}
                 unit="$"
+                label={{ value: "USD/bbl", angle: -90, position: "insideLeft", fill: "#7d8ea6", fontSize: 10 }}
               />
               <Tooltip
                 cursor={{ fill: "#ffffff08" }}
