@@ -147,6 +147,19 @@ def main() -> None:
         df = fetch_corridor(corridor_id, cfg["backfill_start"], cfg["backfill_end"], force=force)
         print(f"[gdelt_bq] {corridor_id}: {len(df)} GKG rows")
         all_articles.append(df)
+
+        # C2: an additional, non-overlapping historical window (e.g.
+        # chokepoint4's real Oct 2023-Feb 2024 Houthi crisis, the
+        # backtest's FIT_WINDOW) -- fetched and merged alongside the
+        # primary backfill, not instead of it.
+        fit_window = cfg.get("backtest_fit_window")
+        if fit_window:
+            fit_df = fetch_corridor(corridor_id, fit_window["start"], fit_window["end"], force=force)
+            print(f"[gdelt_bq] {corridor_id} backtest_fit_window "
+                  f"({fit_window['start']}..{fit_window['end']}): {len(fit_df)} GKG rows")
+            df = pd.concat([df, fit_df], ignore_index=True).drop_duplicates(subset=["url", "date"])
+            all_articles[-1] = df
+
         vol, tone = to_daily_timeline(df, corridor_id)
         all_vol.append(vol)
         all_tone.append(tone)
@@ -197,6 +210,31 @@ def _self_check() -> None:
         pd.Timestamp("2026-03-02").date(): 1,
     }
     assert abs(tone.set_index("date")["timelinetone"][pd.Timestamp("2026-03-01").date()] - (-4.0)) < 1e-9
+
+    # C2: corridor_queries.yaml's chokepoint4 entry must actually carry a
+    # backtest_fit_window (Oct 2023-Feb 2024) -- if this regresses to
+    # missing/null, main()'s merge logic silently stops backfilling the
+    # historical window core/backtest.py's FIT_WINDOW needs
+    import yaml
+
+    corridors = yaml.safe_load(QUERIES_PATH.read_text())
+    fw = corridors["chokepoint4"].get("backtest_fit_window")
+    assert fw and fw["start"] == "2023-10-01" and fw["end"] == "2024-02-29", fw
+
+    # merge-and-dedup logic (main()'s core operation for a corridor with a
+    # fit window): concatenating an overlapping/duplicate row must not
+    # double-count it
+    primary = pd.DataFrame({
+        "date": pd.to_datetime(["2026-03-01 01:00"]), "url": ["dup"],
+        "tone": [-2.0], "corridor_id": ["chokepoint4"],
+    })
+    fit = pd.DataFrame({
+        "date": pd.to_datetime(["2026-03-01 01:00", "2023-11-01 00:00"]),
+        "url": ["dup", "new"], "tone": [-2.0, -1.0], "corridor_id": ["chokepoint4", "chokepoint4"],
+    })
+    merged = pd.concat([primary, fit], ignore_index=True).drop_duplicates(subset=["url", "date"])
+    assert len(merged) == 2, "duplicate row across the two fetch windows was not deduped"
+    assert set(merged["url"]) == {"dup", "new"}
 
     print("[gdelt_bq] self-check passed")
 

@@ -1,0 +1,44 @@
+# Two services, matching run.sh's non-Docker layout exactly: API on
+# :8000, dashboard on :3000. `docker compose up --build` is the whole
+# workflow -- no separate uv/npm install step needed.
+#
+# The dashboard fetches the API from the BROWSER (client-side), not
+# container-to-container, so NEXT_PUBLIC_API_BASE must resolve from the
+# host, not the compose network -- that's why `web` doesn't use the
+# service name "api" as its target and instead relies on api's port
+# being published to the host at the same :8000 the build baked in.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      # Overrides the GOOGLE_APPLICATION_CREDENTIALS path from .env, which
+      # points at a path on the HOST filesystem (e.g.
+      # C:\Users\...\Downloads\...\.json) that doesn't exist inside the
+      # container. data/reference/ and data/snapshots/ are baked into the
+      # image (committed to git) -- the default demo path never calls
+      # BigQuery at request time, so this being unset is correct, not a
+      # missing feature. To re-run ingestion against live GDELT from
+      # inside the container instead, bind-mount the credentials file and
+      # data/snapshots/ (see README's Docker section) and point this at
+      # the mounted path.
+      GOOGLE_APPLICATION_CREDENTIALS: ""
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped

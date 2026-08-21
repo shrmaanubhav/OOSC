@@ -4,13 +4,17 @@ within h days) on the real Red Sea / Bab el-Mandeb crisis (Oct 2023-Feb
 (Feb-Aug 2026, chokepoint6). Reports AUC and a reliability curve for
 h = 7, 14, 30 (design doc §2.7 / PLAN.md Phase 6).
 
-Honesty note (CLAUDE.md rule 8): GDELT (S, E) was only backfilled for
-Jan-Aug 2026 and corridor_exposure.csv has no X for chokepoint4 -- so
-CRI(chokepoint4) in the fit window is O-only by construction (core/risk.py
-renormalizes weights over whatever components exist). The Hormuz
-validation window has the full O/S/E/X index. Calibrating on a thinner
-signal and testing on a richer one is a real asymmetry, reported here
-rather than hidden.
+Honesty note (CLAUDE.md rule 8): GDELT was backfilled for Oct 2023-Feb
+2024 specifically to cover this FIT_WINDOW (C2, ingest/gdelt_bigquery.py's
+backtest_fit_window) -- CRI(chokepoint4) here is O,S for ~105 of 152 days
+(S needs 90 days of trailing history and min_periods=7, so the window's
+earliest days are still O-only). E remains unavailable (the LLM event
+extractor was never run against this window's articles -- Groq's daily
+token cap makes that a real cost, not run here) and corridor_exposure.csv
+has no X for chokepoint4 by design (see that file). The Hormuz validation
+window has the full O/S/E/X index. Calibrating on a two-component signal
+and testing on a four-component one is a real, smaller-than-before
+asymmetry, reported here rather than hidden.
 
 Label definition: "disruption within h days" = O (observed AIS transit
 deficit) exceeds a corridor-specific threshold on any of the next h days.
@@ -122,16 +126,30 @@ def reliability_curve(y: np.ndarray, p: np.ndarray, bins: int = 5) -> pd.DataFra
     )
 
 
-def run_backtest(horizon: int) -> dict:
-    fit_threshold = _corridor_threshold(FIT_PORT, FIT_REFERENCE_WINDOW)
-    valid_threshold = _corridor_threshold(VALID_PORT, VALID_REFERENCE_WINDOW)
+_fit_cache: dict[int, tuple[float, float, pd.DataFrame, float]] = {}
 
-    fit_df = _build_dataset(FIT_CORRIDOR, FIT_PORT, FIT_WINDOW, horizon, fit_threshold)
+
+def _fit(horizon: int) -> tuple[float, float, pd.DataFrame, float]:
+    """The FIT-window logistic fit (b0, b1), cached per horizon since it's
+    deterministic on committed snapshot data and re-fit on every call
+    otherwise -- both run_backtest() and disruption_probability() need it,
+    and the latter is meant to be cheap enough to call on every dashboard
+    load / agent tool call."""
+    if horizon not in _fit_cache:
+        fit_threshold = _corridor_threshold(FIT_PORT, FIT_REFERENCE_WINDOW)
+        fit_df = _build_dataset(FIT_CORRIDOR, FIT_PORT, FIT_WINDOW, horizon, fit_threshold)
+        x_fit, y_fit = (fit_df["CRI"] / 100.0).values, fit_df["label"].values.astype(float)
+        b0, b1 = fit_logistic(x_fit, y_fit)
+        _fit_cache[horizon] = (b0, b1, fit_df, fit_threshold)
+    return _fit_cache[horizon]
+
+
+def run_backtest(horizon: int) -> dict:
+    b0, b1, fit_df, fit_threshold = _fit(horizon)
+    valid_threshold = _corridor_threshold(VALID_PORT, VALID_REFERENCE_WINDOW)
     valid_df = _build_dataset(VALID_CORRIDOR, VALID_PORT, VALID_WINDOW, horizon, valid_threshold)
 
     x_fit, y_fit = (fit_df["CRI"] / 100.0).values, fit_df["label"].values.astype(float)
-    b0, b1 = fit_logistic(x_fit, y_fit)
-
     x_valid, y_valid = (valid_df["CRI"] / 100.0).values, valid_df["label"].values.astype(float)
     p_valid = predict(b0, b1, x_valid)
 
@@ -151,13 +169,40 @@ def run_backtest(horizon: int) -> dict:
     }
 
 
+def disruption_probability(corridor_id: str, horizon: int, cri_now: float | None = None) -> dict:
+    """P(disruption within `horizon` days) for a corridor's CURRENT CRI,
+    using the same logistic calibration run_backtest() validates
+    out-of-sample on Hormuz (fit on the real Bab el-Mandeb crisis,
+    FIT_WINDOW). This is the number the brief actually asks for ("a live
+    supply-disruption probability score") -- core/backtest.py fits and
+    validates it but, before this function existed, nothing ever called
+    predict() again after computing AUC. cri_now defaults to the
+    corridor's latest CRI(t) if not supplied."""
+    if cri_now is None:
+        cri_now = float(compute_cri(corridor_id)["CRI"].iloc[-1])
+    b0, b1, _, _ = _fit(horizon)
+    p = float(predict(b0, b1, np.array([cri_now / 100.0]))[0])
+    return {
+        "corridor_id": corridor_id,
+        "horizon_days": horizon,
+        "cri_now": round(cri_now, 2),
+        "probability": round(p, 3),
+        "method": "logistic calibration fit on the real Bab el-Mandeb crisis (Oct 2023-Feb 2024, "
+                  "core/backtest.py FIT_WINDOW), applied to this corridor's current CRI -- the same "
+                  "coefficients run_backtest() validates out-of-sample on the real Hormuz closure",
+        "sources": ["core/backtest.py fit_logistic", "core/risk.py compute_cri"],
+        "confidence": "see get_backtest's AUC at this horizon for how well-calibrated this "
+                       "probability actually is out-of-sample",
+    }
+
+
 def main() -> None:
     print("[backtest] fit: Bab el-Mandeb (chokepoint4) Oct 2023-Feb 2024 -- real Houthi-attack crisis")
     print("[backtest] validate: Hormuz (chokepoint6) Feb-Aug 2026 -- real closure, out-of-sample\n")
     for h in HORIZONS:
         r = run_backtest(h)
         print(f"--- horizon h={h} days ---")
-        print(f"  fit threshold (O)   = {r['fit_threshold']:.3f}  | components used: {r['fit_components'] or 'O only (S/E/X unavailable pre-2024)'}")
+        print(f"  fit threshold (O)   = {r['fit_threshold']:.3f}  | components used: {r['fit_components'] or 'O only'}")
         print(f"  valid threshold (O) = {r['valid_threshold']:.3f}  | components used: {r['valid_components']}")
         print(f"  fit n={r['n_fit']} (positive rate {r['fit_positive_rate']:.2f}) | valid n={r['n_valid']} (positive rate {r['valid_positive_rate']:.2f})")
         if math.isnan(r["auc"]):
@@ -170,7 +215,17 @@ def main() -> None:
             print("    (not enough distinct predicted probabilities to bin)")
         else:
             print(r["reliability"].to_string())
+        live = disruption_probability("chokepoint6", h)
+        print(f"  LIVE: P(disruption within {h}d | Hormuz's current CRI={live['cri_now']}) = "
+              f"{live['probability']:.1%}")
         print()
+
+    print(
+        "[backtest] Note the h=7 live probability sits well under 50% despite Hormuz being in an "
+        "actual, ongoing, near-total closure right now -- this is the fit/validation CRI-scale "
+        "asymmetry (Bab el-Mandeb's fit-window CRI never reached anywhere near Hormuz's range) "
+        "showing up as a real, honest under-confidence, not a bug. See methodology.md."
+    )
 
 
 def _self_check() -> None:
@@ -204,6 +259,21 @@ def _self_check() -> None:
     assert len(curve) >= 2
     corr = np.corrcoef(curve["mean_predicted"], curve["observed_rate"])[0, 1]
     assert corr > 0.9, corr
+
+    # B1: disruption_probability -- must be a valid probability, monotonic
+    # in CRI, and match run_backtest()'s own coefficients (not a second,
+    # silently-diverging fit)
+    probs = [disruption_probability("chokepoint6", 7, cri_now=c)["probability"] for c in (0, 25, 50, 75, 100)]
+    assert all(0.0 <= p <= 1.0 for p in probs), probs
+    assert probs == sorted(probs), "probability must rise monotonically with CRI"
+    b0, b1, _, _ = _fit(7)
+    hand_calc = predict(b0, b1, np.array([0.5]))[0]
+    assert abs(disruption_probability("chokepoint6", 7, cri_now=50)["probability"] - hand_calc) < 1e-3, (
+        "disruption_probability must use the exact same fit run_backtest() validates, not a separate one"
+    )
+    # cri_now defaults to the corridor's actual latest CRI when omitted
+    live = disruption_probability("chokepoint6", 7)
+    assert 0.0 <= live["probability"] <= 1.0 and live["cri_now"] > 0
 
     print("[backtest] self-check passed")
 

@@ -41,13 +41,22 @@ which comes from price discount, not proximity.
 
 ## Sanctions flag
 
-`sanctions_flag` in `data/reference/sources.csv` is a **hand-tagged
-column** (Urals/ESPO/Sokol/Merey marked `True`), not backed by a live
-sanctioned-vessel or sanctioned-entity list (e.g. OpenSanctions). The
-"sanctions compliance" toggle in the dashboard is a real LP constraint —
-it does prevent those grades from substituting — but the underlying flag
-is a static, manually-curated column, not fed from a real screening
-service.
+`sanctions_flag` in `data/reference/sources.csv` (Urals/ESPO/Sokol/Merey
+marked `True`) is still a **per-grade column, not entity-resolved** — no
+primary source in this build links a specific crude cargo to a specific
+sanctioned vessel or company (crude grades are commodities, not
+designated parties). What it *is* now backed by: `ingest/sanctions.py`
+pulls OFAC's real Specially Designated Nationals list (via OpenSanctions'
+bulk distribution) and counts actual vessel designations under the two
+relevant programs — **439 vessels under US-RUSHAR** (Russia's shadow
+fleet, covering Urals/ESPO/Sokol's shipping exposure) and **60 vessels
+under US-VEN** (Venezuela, covering Merey's), snapshotted 2026-08-20 to
+`data/snapshots/sanctions/ofac_sdn_vessels.csv`. That's real, dated,
+counted evidence the sanctions regime the flag represents is actively
+enforced — not proof any specific Urals cargo was carried by a
+specific listed tanker. The "sanctions compliance" toggle in the
+dashboard remains a real LP constraint — it does prevent those grades
+from substituting.
 
 ## Scenario cascade
 
@@ -86,9 +95,15 @@ Fit window (Bab el-Mandeb, Oct 2023–Feb 2024) and validation window
 (Hormuz, Feb–Aug 2026) are asymmetric on purpose, and that asymmetry is
 reported rather than hidden:
 
-- The **fit window's CRI is O-only** — GDELT coverage in this build
-  starts January 2026, so `S`/`E`/`X` are all unavailable that far back.
-  The **validation window has the full four-component index**.
+- The **fit window's CRI has O and S** — GDELT was specifically backfilled
+  for Oct 2023–Feb 2024 (`ingest/gdelt_bigquery.py`'s `backtest_fit_window`)
+  to cover this window, not just Jan–Aug 2026. `E` is still unavailable
+  (the LLM event extractor never ran against these older articles — a
+  real Groq token-budget cost, not done here) and `X` has no chokepoint4
+  figure by design. The **validation window has the full four-component
+  index**. Adding S measurably reduced the calibration's under-confidence:
+  the live P(disruption within 7d) for Hormuz's current CRI moved from
+  37.5% to 41.0%, closer to the real ground truth of an active closure.
 - Real AUC: **0.979 at h=7, 0.919 at h=14, undefined at h=30** — not
   zero. At h=30 the sustained closure leaves almost every validation-day
   label positive, which makes AUC mathematically undefined, not bad.

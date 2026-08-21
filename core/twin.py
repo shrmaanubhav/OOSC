@@ -64,7 +64,14 @@ def build_twin() -> nx.MultiDiGraph:
     ports = pd.read_csv(REF_DIR / "ports.csv")
     refineries = pd.read_csv(REF_DIR / "refineries.csv")
     corridors = pd.read_parquet(PORTWATCH_CATALOG)
-    corridors = corridors[corridors["portid"].isin(["chokepoint6", "chokepoint4"])]
+    # Derived from sources.csv itself, not hardcoded -- a corridor newly
+    # tagged there (e.g. B3: chokepoint1/5/7) is picked up automatically.
+    # A hardcoded list here previously meant a grade retagged to a new
+    # corridor_transited value would silently fail the `in g` check below
+    # and fall through to the "no modeled corridor" branch -- present in
+    # sources.csv but invisible in the twin.
+    modeled_corridors = set(sources["corridor_transited"]) - {"none"}
+    corridors = corridors[corridors["portid"].isin(modeled_corridors)]
 
     g = nx.MultiDiGraph()
 
@@ -191,6 +198,19 @@ def _self_check() -> None:
     assert path[0]["distance_km"] == 1000
 
     assert sample_path(g, "TestGrade", "NoSuchRefinery") is None
+
+    # B3: real data -- Urals (corridor_transited=chokepoint1 in sources.csv)
+    # must actually reach a Corridor node in the built twin, not silently
+    # fall through to the "no modeled corridor" branch because chokepoint1
+    # wasn't in a hardcoded corridor list
+    real = build_twin()
+    urals_path = sample_path(real, "Urals", "Jamnagar (DTA)")
+    assert urals_path is not None, "no path from Urals to Jamnagar (DTA) in the real twin"
+    assert urals_path[0]["to"] == "chokepoint1", (
+        f"Urals should SHIPS_VIA chokepoint1, went to {urals_path[0]['to']!r} instead -- "
+        "a modeled corridor is being silently dropped"
+    )
+    assert real.nodes["chokepoint1"]["kind"] == "Corridor"
 
     print("[twin] self-check passed")
 

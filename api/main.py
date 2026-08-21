@@ -16,6 +16,7 @@ Same computation underneath, different shape for a different consumer.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -241,9 +242,26 @@ def backtest_endpoint() -> dict:
     return _clean(_cache["backtest"])
 
 
+@app.get("/api/probability/{corridor_id}")
+def probability_endpoint(corridor_id: str, horizon_days: int = 7) -> dict:
+    """LIVE P(disruption within horizon_days) for a corridor's current CRI --
+    the score the brief means by 'a live supply-disruption probability
+    score', not a bare CRI number. Not cached: cheap (one logistic fit,
+    itself cached by horizon in core/backtest.py) and should reflect the
+    corridor's latest CRI on every call."""
+    return _clean(agent_tools.call(
+        "get_disruption_probability", {"corridor_id": corridor_id, "horizon_days": horizon_days}
+    ))
+
+
 @app.get("/api/bypass_routes")
 def bypass_routes() -> dict:
     return _clean(agent_tools.get_bypass_routes())
+
+
+@app.get("/api/sanctions")
+def sanctions() -> dict:
+    return _clean(agent_tools.get_sanctions_evidence())
 
 
 @app.get("/api/reference/{name}")
@@ -302,7 +320,10 @@ def _self_check() -> None:
         "/api/scenario?corridor_id=chokepoint6&severity=1.0&duration_days=90",
         "/api/reserve?daily_gap_kbd=500&duration_days=90",
         "/api/backtest",
+        "/api/probability/chokepoint6",
+        "/api/probability/chokepoint6?horizon_days=30",
         "/api/bypass_routes",
+        "/api/sanctions",
         "/api/reference/refineries",
     ):
         resp = client.get(url)
@@ -310,6 +331,11 @@ def _self_check() -> None:
         body = resp.text
         assert "NaN" not in body and "Infinity" not in body, f"{url} leaked non-JSON floats"
         assert resp.json(), url
+
+    # the probability must be a real number in [0,1] and actually reachable
+    # by URL path param, not just by the underlying tool call
+    prob = client.get("/api/probability/chokepoint6?horizon_days=7").json()
+    assert 0.0 <= prob["probability"] <= 1.0, prob
 
     # CRI must preserve missing components as null, never coerce them to 0 --
     # a fabricated 0 would read as "confirmed calm" in the UI
@@ -356,4 +382,12 @@ if __name__ == "__main__":
     else:
         import uvicorn
 
-        uvicorn.run(app, host="127.0.0.1", port=8000)
+        # 127.0.0.1 by default (don't expose the API beyond localhost when
+        # run directly on the host, matching the "no network required"
+        # posture). Inside a container this must be 0.0.0.0: Docker's port
+        # publishing delivers traffic via the container's own network
+        # interface, not loopback, so a process bound only to 127.0.0.1
+        # inside the container is unreachable from the host no matter what
+        # -p mapping is used -- the Dockerfile sets API_HOST=0.0.0.0.
+        host = os.environ.get("API_HOST", "127.0.0.1")
+        uvicorn.run(app, host=host, port=8000)

@@ -1,9 +1,26 @@
-# GDELT backfill — resolved via BigQuery (2026-08-20)
+# GDELT backfill — resolved via BigQuery (2026-08-20, extended 2026-08-20)
 
-**Status: complete.** `gkg_articles.parquet` (8,149 rows) and
-`timelines.parquet` (688 daily points) exist in this directory, pulled
+**Status: complete.** `gkg_articles.parquet` (11,046 rows, deduped) and
+`timelines.parquet` (910 daily points) exist in this directory, pulled
 via `ingest/gdelt_bigquery.py` against the public `gdelt-bq.gdeltv2.
 gkg_partitioned` dataset.
+
+**Update:** chokepoint4 now also carries an additional, non-overlapping
+backfill window, Oct 2023–Feb 2024 (the real Houthi/Red Sea crisis) --
+this is `core/backtest.py`'s `FIT_WINDOW`, which was previously O-only
+because the primary backfill never reached back that far. It's a second,
+separate query (`backtest_fit_window` in `data/reference/
+corridor_queries.yaml`), fetched and merged alongside the primary
+2026 window, not a replacement for it -- 2,901 additional GKG rows,
+~32.67GB scanned (dry-run confirmed before running). The fit window's
+CRI now carries O and S for ~105 of its 152 days (S needs 90 days of
+trailing history plus `min_periods=7`, so the earliest days are still
+O-only); `E` remains unavailable there since the LLM extractor was never
+run against these older articles. Measured effect: the live P(disruption
+within 7d) for Hormuz's current CRI moved from 37.5% to 41.0% -- the
+transferred calibration is less under-confident with S available in the
+fit window, though the out-of-sample AUC on Hormuz barely moved (0.979 at
+h=7), since AUC depends on the validation set, not the fit set.
 
 ## Why the switch from ingest/gdelt.py (DOC 2.0 API)
 

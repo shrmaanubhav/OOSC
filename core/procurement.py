@@ -24,10 +24,13 @@ solves LP/MILP, not QP:
     build has no primary source for those (Tier 2, deferred). Documented
     here rather than silently presented as real pricing.
 
-demand_j = refinery capacity_kbd (an explicit modeling assumption: India's
-refineries run at high utilization, so nameplate capacity is a reasonable
-proxy for baseline crude throughput demand -- not the same claim as "PPAC
-reports this exact number," and it isn't).
+demand_j = refinery processing_kbd_2025_26 -- PPAC Ready Reckoner Table 4.1's
+own actual FY2025-26 crude-oil-processing throughput per refinery (not
+nameplate capacity_kbd; several refineries genuinely run above nameplate,
+e.g. Mumbai-BPCL at 133% via debottlenecking, which is why total real
+demand of 5,440 kbd exceeds total nameplate capacity of 5,162 kbd). Falls
+back to capacity_kbd if the column is absent (e.g. --self-check's synthetic
+refinery tables, which don't carry it).
 """
 
 from __future__ import annotations
@@ -37,6 +40,9 @@ from pathlib import Path
 
 import pandas as pd
 import pulp
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from core.twin import AVG_TANKER_SPEED_KMH  # noqa: E402 -- 14 knots, typical laden VLCC transit speed
 
 REF_DIR = Path(__file__).resolve().parent.parent / "data" / "reference"
 HEAVY_SOUR_SULPHUR_THRESHOLD = 1.5  # sulphur_pct above this needs can_process_heavy_sour
@@ -151,8 +157,9 @@ def solve(
         + BIG_M * pulp.lpSum(shortfall.values())
     )
 
+    demand_col = "processing_kbd_2025_26" if "processing_kbd_2025_26" in refineries.columns else "capacity_kbd"
     for j in refineries.index:
-        demand = refineries.loc[j, "capacity_kbd"]
+        demand = refineries.loc[j, demand_col]
         prob += pulp.lpSum(x[i, j] for i in sources.index) + shortfall[j] >= demand, f"demand_{j}"
 
     for i in sources.index:
@@ -198,6 +205,8 @@ def solve(
                 "country": sources.loc[i, "country"],
                 "corridor_id": sources.loc[i, "corridor_transited"],
                 "kbd": x[i, j].value(),
+                "distance_km": dist[i, j],
+                "transit_days": round(dist[i, j] / AVG_TANKER_SPEED_KMH / 24, 1),
             }
             for i in sources.index
             for j in refineries.index
@@ -320,6 +329,13 @@ def _self_check() -> None:
         # zero shortfall from *some* combination of the two 100kbd-capacity sources
         assert abs(result["total_allocated_kbd"] - 50.0) < 1e-3
         assert result["total_shortfall_kbd"] < 1e-3
+        # B5: allocation rows must carry distance_km/transit_days -- the
+        # cargo-level "recommended actions" UI needs these to size VLCC
+        # counts and voyage time, not just a bare kbd rate
+        assert "distance_km" in result["allocation"].columns
+        assert "transit_days" in result["allocation"].columns
+        assert (result["allocation"]["distance_km"] == 5000.0).all()  # penalty distance, this synthetic setup
+        assert (result["allocation"]["transit_days"] > 0).all()
 
         # demand exceeds total supply -> shortfall must appear, not silently
         # under-allocate
@@ -359,6 +375,27 @@ def _self_check() -> None:
     finally:
         _distance_cache.clear()
         REF_DIR = original
+
+    # B3: real data -- Urals/ESPO/Sokol and the Atlantic-basin grades used
+    # to be corridor_transited=none, which made them structurally immune to
+    # every corridor shock the LP models (a real optimizer bias toward
+    # "free" sources). A Suez closure must now actually zero out Urals
+    # (tagged chokepoint1), and must NOT touch it via the wrong corridor.
+    base = solve()
+    urals_base = base["allocation"][base["allocation"]["source"] == "Urals"]["kbd"].sum()
+    assert urals_base > 0, "Urals should carry some baseline flow"
+    suez_closed = solve(severity={"chokepoint1": 1.0})
+    urals_suez = suez_closed["allocation"][suez_closed["allocation"]["source"] == "Urals"]["kbd"].sum()
+    assert urals_suez < 1e-6, (
+        "Urals still allocated kbd with Suez (chokepoint1) fully closed -- corridor_transited "
+        "retagging in sources.csv or corridor_exposure.csv's chokepoint1 capacity regressed"
+    )
+    malacca_closed = solve(severity={"chokepoint5": 1.0})
+    urals_malacca = malacca_closed["allocation"][malacca_closed["allocation"]["source"] == "Urals"]["kbd"].sum()
+    assert abs(urals_malacca - urals_base) < 1e-6, (
+        "Urals allocation changed when Malacca (chokepoint5, not Urals's corridor) was shocked -- "
+        "corridor tagging is cross-wired"
+    )
 
     print("[procurement] self-check passed")
 

@@ -49,6 +49,8 @@ export type Allocation = {
   country: string;
   corridor_id: string;
   kbd: number;
+  distance_km: number;
+  transit_days: number;
 };
 
 export type ProcurementResult = {
@@ -97,6 +99,15 @@ export type ReserveResult = {
     unserved_kbd: number;
     days_of_cover_remaining: number;
   }[];
+  caveat: string;
+};
+
+export type DisruptionProbability = {
+  corridor_id: string;
+  horizon_days: number;
+  cri_now: number;
+  probability: number;
+  method: string;
   caveat: string;
 };
 

@@ -118,6 +118,31 @@ def get_bypass_routes(corridor_id: str | None = None) -> dict:
     }
 
 
+def get_sanctions_evidence() -> dict:
+    """Real, dated evidence backing sources.csv's per-grade sanctions_flag
+    (Urals/ESPO/Sokol/Merey): counts of OFAC-designated VESSELS under the
+    relevant sanctions programs, pulled from OFAC's SDN list via
+    OpenSanctions (ingest/sanctions.py). This is evidence the sanctions
+    regime is real and actively enforced -- NOT proof any specific cargo
+    was carried by a specific listed vessel (no primary source in this
+    build resolves a crude grade to an individual tanker)."""
+    path = Path(__file__).resolve().parent.parent / "data" / "snapshots" / "sanctions" / "ofac_sdn_vessels.csv"
+    if not path.exists():
+        return {"error": "sanctions snapshot not found -- run ingest/sanctions.py"}
+    df = pd.read_csv(path)
+    return {
+        "as_of": str(df["last_seen"].max())[:10] if len(df) else None,
+        "source": "OFAC Specially Designated Nationals list, via OpenSanctions bulk distribution "
+                  "(ingest/sanctions.py, data/snapshots/sanctions/ofac_sdn_vessels.csv)",
+        "designated_vessel_counts_by_program": df["program_label"].value_counts().to_dict(),
+        "total_designated_vessels": len(df),
+        "caveat": "Vessel-level designations under the sanctions programs relevant to sources.csv's "
+                  "flagged grades (Russia/US-RUSHAR, Venezuela/US-VEN) -- not a crude-grade-to-vessel "
+                  "resolution. Confirms the sanctions regime is real and populated, not that any "
+                  "specific cargo used a specific listed tanker.",
+    }
+
+
 def run_scenario(
     corridor_id: str,
     severity: float,
@@ -228,8 +253,36 @@ def get_backtest(horizon_days: int = 7) -> dict:
         "n_validation_days": r["n_valid"],
         "validation_positive_rate": round(r["valid_positive_rate"], 3),
         "caveat": "AUC is null at long horizons because the sustained closure makes nearly every "
-                  "validation day a positive label -- undefined, not zero. The fit window's CRI is "
-                  "O-only (no GDELT coverage back to 2023) while validation has all four components.",
+                  "validation day a positive label -- undefined, not zero. The fit window's CRI has "
+                  "O,S (GDELT was backfilled for Oct 2023-Feb 2024 specifically to cover this "
+                  "window) but not E (LLM event extraction never ran against it) or X, while "
+                  "validation has all four components.",
+    }
+
+
+def get_disruption_probability(corridor_id: str, horizon_days: int = 7) -> dict:
+    """LIVE probability that this corridor is disrupted within horizon_days,
+    from the corridor's current CRI run through the same logistic
+    calibration get_backtest validates out-of-sample. This is the number
+    the brief means by 'a live supply-disruption probability score' --
+    prefer it over quoting a bare CRI figure when asked about risk or
+    likelihood. Call get_backtest at the same horizon_days to see how
+    reliable this probability actually is out-of-sample (AUC) before
+    treating it as precise."""
+    cri = _cri(corridor_id)
+    cri_now = float(cri["CRI"].iloc[-1])
+    r = backtest.disruption_probability(corridor_id, int(horizon_days), cri_now=cri_now)
+    return {
+        "corridor_id": r["corridor_id"],
+        "horizon_days": r["horizon_days"],
+        "cri_now": r["cri_now"],
+        "probability": r["probability"],
+        "method": r["method"],
+        "caveat": "This calibration was fit on Bab el-Mandeb's CRI range (Oct 2023-Feb 2024), which "
+                  "never reached anywhere near Hormuz's current levels -- applied to a high-CRI "
+                  "corridor like an active Hormuz closure, it is measurably UNDER-confident (a "
+                  "near-total real closure can still show well under 50% here). Call get_backtest "
+                  "for this horizon's out-of-sample AUC before treating this number as precise.",
     }
 
 
@@ -265,6 +318,11 @@ REGISTRY = {
         "parameters": _p(
             {"corridor_id": {"type": STR, "description": "corridor to find bypasses for; omit for all"}}
         ),
+    },
+    "get_sanctions_evidence": {
+        "fn": get_sanctions_evidence,
+        "description": get_sanctions_evidence.__doc__,
+        "parameters": _p({}),
     },
     "run_scenario": {
         "fn": run_scenario,
@@ -309,6 +367,17 @@ REGISTRY = {
         "fn": get_backtest,
         "description": get_backtest.__doc__,
         "parameters": _p({"horizon_days": {"type": INT, "description": "7, 14 or 30"}}),
+    },
+    "get_disruption_probability": {
+        "fn": get_disruption_probability,
+        "description": get_disruption_probability.__doc__,
+        "parameters": _p(
+            {
+                "corridor_id": {"type": STR, "description": "e.g. 'chokepoint6' (Hormuz), 'chokepoint4' (Bab el-Mandeb)"},
+                "horizon_days": {"type": INT, "description": "7, 14 or 30, default 7"},
+            },
+            ["corridor_id"],
+        ),
     },
 }
 
@@ -367,8 +436,10 @@ def _self_check() -> None:
         "list_corridors": call("list_corridors", {}),
         "get_cri": call("get_cri", {"corridor_id": "chokepoint6", "days": 30}),
         "get_bypass_routes": call("get_bypass_routes", {"corridor_id": "chokepoint6"}),
+        "get_sanctions_evidence": call("get_sanctions_evidence", {}),
         "run_reserve": call("run_reserve", {"daily_gap_kbd": 500, "duration_days": 90}),
         "get_backtest": call("get_backtest", {"horizon_days": 7}),
+        "get_disruption_probability": call("get_disruption_probability", {"corridor_id": "chokepoint6", "horizon_days": 7}),
         "solve_procurement": call("solve_procurement", {"corridor_id": "chokepoint6", "severity": 1.0}),
         "run_scenario": call("run_scenario", {"corridor_id": "chokepoint6", "severity": 1.0, "duration_days": 90}),
     }
@@ -376,11 +447,25 @@ def _self_check() -> None:
         assert "error" not in out, f"{name} -> {out['error']}"
         json.dumps(out)  # must be serializable for both the LLM and the SSE API
 
+    # the probability must actually be a probability, and must move with CRI
+    # (not a constant stub) -- Bab el-Mandeb (currently much lower CRI) and
+    # Hormuz (an active near-total closure) must not report the same figure
+    prob6 = results["get_disruption_probability"]["probability"]
+    assert 0.0 <= prob6 <= 1.0, prob6
+    prob4 = call("get_disruption_probability", {"corridor_id": "chokepoint4", "horizon_days": 7})["probability"]
+    assert prob6 != prob4, "probability didn't vary with corridor -- looks like a stub"
+
     # the bypass coupling that Phase 7's exit criterion depends on must
     # actually be reachable through the tool, not just present in the CSV
     routes = results["get_bypass_routes"]["routes"]
     yanbu = [r for r in routes if "Yanbu" in r["route_name"]]
     assert yanbu and yanbu[0]["discharge_corridor"] == "chokepoint4", yanbu
+
+    # C3: the sanctions evidence tool must report real, non-trivial counts
+    # for both relevant programs, not an empty/stub snapshot
+    counts = results["get_sanctions_evidence"]["designated_vessel_counts_by_program"]
+    assert counts.get("Russia (Urals/ESPO/Sokol)", 0) > 100, counts
+    assert counts.get("Venezuela (Merey)", 0) > 0, counts
 
     # unknown tool / bad args must return a usable error, never raise --
     # the loop has to be able to show the model what it did wrong

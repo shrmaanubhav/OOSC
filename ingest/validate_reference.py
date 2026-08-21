@@ -25,6 +25,7 @@ def validate() -> None:
     sources = pd.read_csv(REF_DIR / "sources.csv")
     bypass_routes = pd.read_csv(REF_DIR / "bypass_routes.csv")
     spr = pd.read_csv(REF_DIR / "spr.csv")
+    corridor_exposure = pd.read_csv(REF_DIR / "corridor_exposure.csv")
 
     port_ids = set(ports["portid"])
     errors: list[str] = []
@@ -37,7 +38,10 @@ def validate() -> None:
             if pid.strip() not in port_ids:
                 errors.append(f"refineries.csv: {row['name']} references unknown port {pid!r}")
 
-    known_corridors = {"chokepoint6", "chokepoint4", "none"}
+    # Derived from corridor_exposure.csv itself, not hardcoded -- a corridor
+    # newly added there (e.g. B3: chokepoint1/5/7) is automatically valid
+    # here without a second place to remember to update.
+    known_corridors = set(corridor_exposure["corridor_id"]) | {"none"}
     for _, row in sources.iterrows():
         if row["corridor_transited"] not in known_corridors:
             errors.append(

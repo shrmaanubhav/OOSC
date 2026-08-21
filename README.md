@@ -23,6 +23,41 @@ exception is the Analyst chat panel, which needs a live LLM key (see
 `docs/methodology.md` for the full list of data-quality caveats, also
 reachable from the "ⓘ methodology" link in the dashboard header.
 
+### Or: Docker
+
+```bash
+cp .env.example .env   # required even if you leave every key blank
+docker compose up --build
+```
+
+Open http://localhost:3000. Same two services as `run.sh` (API on
+`:8000`, dashboard on `:3000`), each in its own multi-stage image
+(`Dockerfile` for the API — `python:3.12-slim` + `uv`; `web/Dockerfile`
+for the dashboard — Next.js `output: "standalone"`). `data/reference/`
+and `data/snapshots/` are baked into the API image at build time (both
+are committed to git), so the container needs no volume for the default
+demo path — matches the same "no network required" claim as the
+non-Docker quickstart above.
+
+Two things worth knowing:
+- **`NEXT_PUBLIC_API_BASE` is a build-time value**, not a runtime one —
+  Next.js inlines `NEXT_PUBLIC_*` vars into the client bundle at `next
+  build`. It's already set to `http://localhost:8000` in
+  `docker-compose.yml` (the browser fetches the API directly, not
+  container-to-container, so this must resolve from your machine, not
+  the compose network). Rebuild the `web` image
+  (`docker compose build web`) if you change it.
+- **Re-running ingestion inside the container** (GDELT/PPAC/sanctions,
+  the "Re-running ingestion" section below) needs two things this
+  compose file deliberately doesn't set up by default: a bind mount for
+  `data/snapshots/` (so a fresh snapshot persists back to the host) and,
+  for `ingest/gdelt_bigquery.py`, your GCP service-account JSON
+  bind-mounted in and `GOOGLE_APPLICATION_CREDENTIALS` in `docker-
+  compose.yml` pointed at that mounted path instead of the empty string
+  it's set to now. Add both under the `api` service's `volumes:`/
+  `environment:` if you need this — left out by default since the
+  judged demo path never needs it.
+
 ## What's built so far
 
 1. **Real AIS data** (IMF PortWatch) showing the Hormuz collapse.
@@ -178,8 +213,10 @@ out-of-sample on the real Hormuz closure (Feb–Aug 2026), reporting AUC
 and a reliability curve for h=7/14/30 days. Prints the real numbers
 (AUC 0.979 at h=7, 0.919 at h=14, undefined at h=30 once the closure
 makes almost every validation day a positive) plus the honest caveats:
-the fit window's CRI is O-only (GDELT didn't reach back to 2023–24) and
-each corridor uses its own noise-floor-calibrated disruption threshold.
+the fit window's CRI has O and S (GDELT was specifically backfilled for
+Oct 2023–Feb 2024 to cover it) but not E or X, while validation has all
+four; each corridor uses its own noise-floor-calibrated disruption
+threshold.
 
 ```bash
 uv run python agent/provenance.py
@@ -219,8 +256,11 @@ uv run python ingest/portwatch.py
 # 2. GDELT news signal, via BigQuery (primary path — needs
 #    GOOGLE_APPLICATION_CREDENTIALS + GCP_PROJECT_ID in .env).
 #    Does a dry-run cost check before every real query and refuses to
-#    run past 200GB without --force -- verified live cost is ~78GB
-#    total for both corridors, well under the 1TB/month free tier.
+#    run past 200GB without --force -- verified live cost is ~78GB for
+#    the primary Jan-Aug 2026 window (both corridors) plus ~33GB for
+#    chokepoint4's additional backtest_fit_window (Oct 2023-Feb 2024,
+#    see data/reference/corridor_queries.yaml), well under the 1TB/month
+#    free tier.
 uv run python ingest/gdelt_bigquery.py
 
 # 2b. Fallback if BigQuery access isn't set up: the DOC 2.0 API.
@@ -291,6 +331,10 @@ api/             main.py -- FastAPI; REST for the charts, SSE for the
                  the LLM provider on /api/ask
 web/             Next.js 15 dashboard (deck.gl map, recharts, hand-rolled
                  Sankey). public/land-110m.geojson is the offline basemap
+Dockerfile, docker-compose.yml, web/Dockerfile
+                 optional containerized path (`docker compose up
+                 --build`) -- alternative to run.sh/run.ps1, not a
+                 replacement; see "Or: Docker" above
 ```
 
 `PLAN.md` is the phase-by-phase build log with what's done, what's
@@ -339,8 +383,9 @@ arithmetic, etc.) — worth reading if you're extending this.
 - **The backtest calibrates on one crisis and validates on a different
   one of a different character.** Bab el-Mandeb (Oct 2023–Feb 2024) was
   a rerouting event — ships avoided the strait, but AIS transit counts
-  never collapsed the way Hormuz's did — so the fit window's CRI is
-  O-only (no GDELT coverage that far back) and uses a much lower
+  never collapsed the way Hormuz's did — so the fit window's CRI has O
+  and S (GDELT specifically backfilled for Oct 2023–Feb 2024) but not E
+  (extraction never ran against it) or X, and uses a much lower
   disruption threshold than the validation window. AUC is real and
   strong at h=7/14 but undefined at h=30 (the validation window becomes
   almost entirely positive-label once the closure is sustained), and the

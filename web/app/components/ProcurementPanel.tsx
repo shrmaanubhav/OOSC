@@ -11,6 +11,7 @@ import { Term } from "./Term";
  *  (the distance matrix is cached, so a solve is ~150ms). */
 export default function ProcurementPanel({
   data,
+  baseline,
   lambdaRisk,
   onLambdaChange,
   antiConcentration,
@@ -19,6 +20,7 @@ export default function ProcurementPanel({
   loading,
 }: {
   data: ProcurementResult | null;
+  baseline: ProcurementResult | null;
   lambdaRisk: number;
   onLambdaChange: (v: number) => void;
   antiConcentration: boolean;
@@ -112,7 +114,7 @@ export default function ProcurementPanel({
           />
         </div>
 
-        <RecommendedActions allocation={data?.allocation ?? []} />
+        <RecommendedActions allocation={data?.allocation ?? []} baseline={baseline?.allocation ?? []} />
       </div>
     </Panel>
   );

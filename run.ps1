@@ -1,6 +1,8 @@
 # One-command demo launch: FastAPI backend + Next.js dashboard, both
-# reading only from data/snapshots/ -- no Docker in this stack (uv + npm
-# is the whole toolchain), no network calls except the Analyst panel.
+# reading only from data/snapshots/ -- uv + npm is the whole toolchain
+# for this script, no network calls except the Analyst panel. A Docker
+# path also exists (docker-compose.yml, `docker compose up --build`) for
+# anyone who'd rather not install uv/npm locally -- see README.md.
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 

@@ -16,6 +16,7 @@ import {
   BypassRoutes,
   Corridors,
   CriSeries,
+  DisruptionProbability,
   ProcurementResult,
   ReserveResult,
   ScenarioResult,
@@ -27,6 +28,7 @@ import {
 
 export default function Dashboard() {
   const [cri, setCri] = useState<Record<string, CriSeries>>({});
+  const [probability, setProbability] = useState<Record<string, DisruptionProbability>>({});
   const [twin, setTwin] = useState<TwinGraph | null>(null);
   const [corridors, setCorridors] = useState<Corridors | null>(null);
   const [bypass, setBypass] = useState<BypassRoutes | null>(null);
@@ -41,6 +43,9 @@ export default function Dashboard() {
   const [antiConc, setAntiConc] = useState(true);
   const [proc, setProc] = useState<ProcurementResult | null>(null);
   const [procLoading, setProcLoading] = useState(false);
+  // status-quo baseline (no shock, no risk aversion) -- fetched once, used
+  // by RecommendedActions to show "+X kbd vs current sourcing" deltas
+  const [procBaseline, setProcBaseline] = useState<ProcurementResult | null>(null);
 
   // scenario controls
   const [severity, setSeverity] = useState(1);
@@ -63,14 +68,19 @@ export default function Dashboard() {
       get<BypassRoutes>("/api/bypass_routes"),
       get<BacktestResult>("/api/backtest"),
       get<{ rows: { name: string; operator: string }[] }>("/api/reference/refineries"),
+      get<DisruptionProbability>("/api/probability/chokepoint6?horizon_days=7"),
+      get<DisruptionProbability>("/api/probability/chokepoint4?horizon_days=7"),
+      get<ProcurementResult>("/api/procurement?severity=0&lambda_risk=0"),
     ])
-      .then(([c6, c4, tw, co, by, bt, refs]) => {
+      .then(([c6, c4, tw, co, by, bt, refs, p6, p4, procBase]) => {
         setCri({ chokepoint6: c6, chokepoint4: c4 });
+        setProbability({ chokepoint6: p6, chokepoint4: p4 });
         setTwin(tw);
         setCorridors(co);
         setBypass(by);
         setBacktest(bt);
         setRefineries(refs.rows);
+        setProcBaseline(procBase);
         if (c6.as_of) setCursorDate(c6.series[c6.series.length - 1].date);
       })
       .catch((e) => setErr(String(e)));
@@ -163,11 +173,16 @@ export default function Dashboard() {
         <div className="flex items-center gap-2.5">
           {(corridors?.corridors ?? []).map((c) => {
             const v = cri[c.corridor_id]?.series.find((p) => p.date === cursorDate)?.CRI ?? null;
+            const p = probability[c.corridor_id];
             return (
               <div
                 key={c.corridor_id}
                 className="panel px-3 py-1.5 flex items-center gap-2.5"
-                title={c.note}
+                title={
+                  p
+                    ? `${c.note}\n\nP(disruption within ${p.horizon_days}d) = ${(p.probability * 100).toFixed(0)}% as of now (CRI=${p.cri_now}). ${p.caveat}`
+                    : c.note
+                }
               >
                 <span
                   className="w-2 h-2 rounded-full shrink-0"
@@ -181,9 +196,16 @@ export default function Dashboard() {
                       : "coupling corridor"}
                   </div>
                 </div>
-                <span className="mono text-[16px]" style={{ color: riskColor(v) }}>
-                  {v == null ? "—" : v.toFixed(0)}
-                </span>
+                <div className="text-right leading-tight">
+                  <span className="mono text-[16px]" style={{ color: riskColor(v) }}>
+                    {v == null ? "—" : v.toFixed(0)}
+                  </span>
+                  {p && (
+                    <div className="asof mono">
+                      P({p.horizon_days}d) {(p.probability * 100).toFixed(0)}%
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -229,14 +251,21 @@ export default function Dashboard() {
               those yet).
             </li>
             <li>
-              <b className="text-[var(--foreground)]">Sanctions flag</b> — a hand-tagged column in{" "}
-              <code className="mono">data/reference/sources.csv</code> (Urals/ESPO/Sokol/Merey),
-              not backed by a live sanctioned-vessel/entity list (e.g. OpenSanctions) yet.
+              <b className="text-[var(--foreground)]">Sanctions flag</b> — still a per-grade column
+              in <code className="mono">data/reference/sources.csv</code> (Urals/ESPO/Sokol/Merey),
+              not entity-resolved to a specific vessel. Now backed by a real pull: OFAC’s SDN list
+              via OpenSanctions counts 439 vessels under the US-RUSHAR (Russia) program and 60 under
+              US-VEN (Venezuela), 2026-08-20 (<code className="mono">ingest/sanctions.py</code>) —
+              real evidence the sanctions regime is active, not proof a specific cargo used a
+              specific listed tanker.
             </li>
             <li>
-              <b className="text-[var(--foreground)]">Scenario cascade</b> — demand uses nameplate
-              refinery capacity, one national yield mix applied to every refinery, and 1:1
-              crude-to-CPI pass-through that ignores India’s fuel excise cushioning.
+              <b className="text-[var(--foreground)]">Scenario cascade</b> — demand uses each
+              refinery’s actual FY2025-26 processing throughput (PPAC Table 4.1), not nameplate
+              capacity; still one national yield mix applied to every refinery, and 1:1
+              crude-to-CPI pass-through that ignores India’s fuel excise cushioning. The 90-day
+              import-bill figure now uses a real observed price-decay half-life (~42 days, fit on
+              PPAC’s own Apr→Jun 2026 monthly averages) instead of holding the peak price flat.
             </li>
             <li>
               <b className="text-[var(--foreground)]">Digital twin</b> — the flow map above{" "}
@@ -246,9 +275,19 @@ export default function Dashboard() {
             </li>
             <li>
               <b className="text-[var(--foreground)]">Backtest</b> — fit window CRI (Bab
-              el-Mandeb, Oct 2023–Feb 2024) is O-only since GDELT coverage doesn’t reach that far
-              back; validation window (Hormuz) has all four components. AUC is undefined, not
-              zero, at horizons where the sustained closure leaves only one label class.
+              el-Mandeb, Oct 2023–Feb 2024) now has O and S (GDELT was specifically backfilled for
+              this window); E is still unavailable (LLM event extraction never ran against these
+              older articles) and X has no chokepoint4 figure by design. Validation window (Hormuz)
+              has all four components. AUC is undefined, not zero, at horizons where the sustained
+              closure leaves only one label class.
+            </li>
+            <li>
+              <b className="text-[var(--foreground)]">Live disruption probability</b> — the P(7d)
+              figure on each corridor chip above reuses this same calibration, applied to today’s
+              CRI. Because it was fit on Bab el-Mandeb’s much narrower CRI range, it is measurably
+              under-confident on Hormuz: even during the real, ongoing, near-total closure this
+              build backtests against, it reports well under 50% — a genuine cross-corridor
+              transfer limitation, shown rather than hidden.
             </li>
           </ul>
         </section>
@@ -281,6 +320,7 @@ export default function Dashboard() {
           {activePanel === "procurement" && (
             <ProcurementPanel
               data={proc}
+              baseline={procBaseline}
               lambdaRisk={lambdaRisk}
               onLambdaChange={setLambdaRisk}
               antiConcentration={antiConc}
