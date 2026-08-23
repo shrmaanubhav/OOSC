@@ -15,7 +15,9 @@ Write-Host "Starting Project Sentinel API on :8000..."
 $api = Start-Process -PassThru -NoNewWindow uv "run python api/main.py"
 
 Write-Host "Starting the dashboard on :3000..."
-$web = Start-Process -PassThru -NoNewWindow npm "--prefix web run dev"
+$npmCmd = (Get-Command npm.cmd -ErrorAction SilentlyContinue).Source
+if (-not $npmCmd) { $npmCmd = (Get-Command npm).Source }
+$web = Start-Process -PassThru -NoNewWindow $npmCmd "--prefix web run dev"
 
 Start-Sleep -Seconds 4
 Start-Process "http://localhost:3000"

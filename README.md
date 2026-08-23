@@ -1,90 +1,73 @@
 # Project Sentinel
 
-AI-driven energy supply-chain resilience system for India — built and
-backtested against a real event, not a hypothetical: the Strait of Hormuz
-closure that began 28 Feb 2026 and was still ongoing as of this build
-(19–20 Aug 2026). Full background, architecture rationale, and formulas
-live in `PLAN.md` (phase index) and the design doc referenced there;
-this file is about running and understanding what exists **right now**
-(Phases 0–8 complete).
+AI-driven energy supply-chain resilience system for India. Backtested
+against a real event: the Strait of Hormuz closure that began 28 Feb 2026
+and was still ongoing as of this build (19-20 Aug 2026). Architecture
+notes and formulas are in `PLAN.md`; this file covers running it and
+what's currently working (Phases 0-8 complete).
 
-## Quick start (judges — 2 minutes)
+## Quick start (judges, 2 minutes)
 
 ```bash
 uv sync && cp .env.example .env
-./run.sh          # or: run.ps1 on Windows
+./run.sh          # or run.ps1 on Windows
 ```
 
-Open http://localhost:3000. **No API keys and no internet connection are
-required** — the dashboard reads from `data/snapshots/`, frozen 2026-08-20,
-and the map's coastlines are a local file, not a tile server. The one
-exception is the Analyst chat panel, which needs a live LLM key (see
-`.env.example`); every other panel works with the network unplugged. See
-`docs/methodology.md` for the full list of data-quality caveats, also
-reachable from the "ⓘ methodology" link in the dashboard header.
+Open http://localhost:3000. No API keys or internet connection required —
+the dashboard reads from `data/snapshots/` (frozen 2026-08-20) and the
+map's coastlines are a local file, not a tile server. The only exception
+is the Analyst chat panel, which needs a live LLM key (see
+`.env.example`). Everything else works offline. Data-quality caveats are
+in `docs/methodology.md`, also linked from the dashboard header.
 
 ### Or: Docker
 
 ```bash
-cp .env.example .env   # required even if you leave every key blank
+cp .env.example .env   # required even with every key left blank
 docker compose up --build
 ```
 
-Open http://localhost:3000. Same two services as `run.sh` (API on
-`:8000`, dashboard on `:3000`), each in its own multi-stage image
-(`Dockerfile` for the API — `python:3.12-slim` + `uv`; `web/Dockerfile`
-for the dashboard — Next.js `output: "standalone"`). `data/reference/`
-and `data/snapshots/` are baked into the API image at build time (both
-are committed to git), so the container needs no volume for the default
-demo path — matches the same "no network required" claim as the
-non-Docker quickstart above.
+Same two services as `run.sh` (API on `:8000`, dashboard on `:3000`),
+each in its own multi-stage image (`Dockerfile` for the API,
+`python:3.12-slim` + `uv`; `web/Dockerfile` for the dashboard, Next.js
+`output: "standalone"`). `data/reference/` and `data/snapshots/` are
+baked into the API image at build time, so no volume is needed for the
+default demo path.
 
-Two things worth knowing:
-- **`NEXT_PUBLIC_API_BASE` is a build-time value**, not a runtime one —
-  Next.js inlines `NEXT_PUBLIC_*` vars into the client bundle at `next
-  build`. It's already set to `http://localhost:8000` in
-  `docker-compose.yml` (the browser fetches the API directly, not
-  container-to-container, so this must resolve from your machine, not
-  the compose network). Rebuild the `web` image
-  (`docker compose build web`) if you change it.
-- **Re-running ingestion inside the container** (GDELT/PPAC/sanctions,
-  the "Re-running ingestion" section below) needs two things this
-  compose file deliberately doesn't set up by default: a bind mount for
-  `data/snapshots/` (so a fresh snapshot persists back to the host) and,
-  for `ingest/gdelt_bigquery.py`, your GCP service-account JSON
-  bind-mounted in and `GOOGLE_APPLICATION_CREDENTIALS` in `docker-
-  compose.yml` pointed at that mounted path instead of the empty string
-  it's set to now. Add both under the `api` service's `volumes:`/
-  `environment:` if you need this — left out by default since the
-  judged demo path never needs it.
+Two things to know:
+- `NEXT_PUBLIC_API_BASE` is a build-time value, not runtime — Next.js
+  inlines `NEXT_PUBLIC_*` vars into the client bundle at `next build`.
+  It's set to `http://localhost:8000` in `docker-compose.yml` (the
+  browser hits the API directly, not through the compose network).
+  Rebuild the `web` image if you change it.
+- Re-running ingestion inside the container (GDELT/PPAC/sanctions)
+  needs a bind mount for `data/snapshots/` and, for
+  `ingest/gdelt_bigquery.py`, a GCP service-account JSON mounted in with
+  `GOOGLE_APPLICATION_CREDENTIALS` pointed at it — neither is set up by
+  default since the judged demo path doesn't need them.
 
-## What's built so far
+## What's built
 
-1. **Real AIS data** (IMF PortWatch) showing the Hormuz collapse.
-2. **A Corridor Risk Index (CRI)** combining that AIS signal with news
-   volume/tone (GDELT) and LLM-extracted discrete events, with a
-   verified "news leads AIS by about a week" result.
-3. **A digital twin** (crude sources → corridor → Indian port →
-   refinery) built from PPAC's authoritative refinery capacity data.
-4. **A procurement LP** allocating crude sources to refineries (cost +
-   risk-adjusted, with an anti-concentration safeguard), a **scenario
-   cascade engine** turning a corridor shock into refinery run-cuts,
-   product shortfalls, a calibrated price impact, and India-macro
-   impact (import bill, %GDP, CPI) — every number sourced or flagged,
-   and a **reserve drawdown LP** showing days-of-cover under a shock.
+Real AIS data from IMF PortWatch shows the Hormuz collapse. On top of
+that sits a Corridor Risk Index (CRI) that combines AIS with GDELT news
+volume/tone and LLM-extracted events; news turns out to lead AIS by
+about a week, which lines up with the actual timeline.
 
-5. **A backtest** (`core/backtest.py`) calibrating the CRI against a real,
-   different crisis (Red Sea/Bab el-Mandeb, Oct 2023–Feb 2024) and
-   validating out-of-sample against the real Hormuz closure, plus a
-   **provenance validator** (`agent/provenance.py`) that catches any
-   number an agent response can't trace back to an actual tool result.
+There's a digital twin (crude sources -> corridor -> Indian port ->
+refinery) built from PPAC's refinery capacity data, plus a procurement
+LP that allocates crude to refineries with an anti-concentration
+safeguard, a scenario cascade that turns a corridor shock into
+run-cuts / product shortfalls / price impact / India-macro numbers
+(import bill, %GDP, CPI), and a reserve drawdown LP for days-of-cover.
 
-6. **An agent** (`agent/loop.py`) that answers questions using only these
-   tools, with every number in its answer checked in code against the
-   tool results that produced it — and a **dashboard** (`web/`) that
-   runs the whole thing with the network unplugged.
+`core/backtest.py` calibrates the CRI against a different crisis (Red
+Sea/Bab el-Mandeb, Oct 2023-Feb 2024) and validates out-of-sample
+against Hormuz. `agent/provenance.py` catches any number an agent
+response can't trace back to a tool result. `agent/loop.py` is the
+agent itself, and `web/` is the dashboard that runs all of this
+offline.
 
-Phase 9 (demo rehearsal + polish) is not done yet.
+Phase 9 (demo rehearsal + polish) isn't done yet.
 
 ## Run the dashboard
 
@@ -101,31 +84,29 @@ npm --prefix web run dev
 ```
 
 Open http://localhost:3000. Everything except the Analyst panel works
-with no API key and no internet — the backend reads only from
-`data/snapshots/`, and the map's coastlines are a local GeoJSON rather
-than a tile server. The Analyst panel is the one part that needs a live
-LLM key (see `.env`); every other panel is fully offline.
+offline — the backend reads only from `data/snapshots/`, and the map's
+coastlines are a local GeoJSON rather than a tile server.
 
-The two interactive controls worth driving in a demo:
+Two controls to try in a demo:
 
 - **λ (risk aversion)** in the procurement panel re-solves the LP
-  server-side on every drag and visibly shifts allocation away from
-  high-CRI corridors.
-- **Hormuz severity** + **“+ Bab el-Mandeb closed”** in the impact panel
-  re-runs the full cascade, which is where the bypass-coupling point
+  server-side on every drag and shifts allocation away from high-CRI
+  corridors.
+- **Hormuz severity** + **"+ Bab el-Mandeb closed"** in the impact panel
+  re-runs the full cascade — this is where the bypass-coupling point
   lands: the Saudi East-West pipeline stops being an escape route once
   its discharge corridor is also shut.
 
 ## Prerequisites
 
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/)
-- Node 22+ and npm (only needed once Phase 8/frontend starts — not
-  required to run anything below)
+- Node 22+ and npm (only for the frontend, not required for anything
+  below the "Run the dashboard" section)
 - A free [Groq](https://console.groq.com/keys) API key (or OpenAI/Gemini
-  — see `.env.example`) if you want to re-run event extraction
-- A free Google Cloud project with the BigQuery API enabled, if you want
-  to re-run the GDELT backfill (see `.env.example` for the exact setup
-  steps — not needed just to explore the already-committed data)
+  — see `.env.example`) to re-run event extraction
+- A Google Cloud project with the BigQuery API enabled, to re-run the
+  GDELT backfill (see `.env.example`) — not needed to explore the data
+  already committed
 
 ## Setup
 
@@ -134,15 +115,14 @@ uv sync
 cp .env.example .env
 ```
 
-Edit `.env` and fill in whichever keys you actually have — nothing
-below requires a key to run against the data already committed in
-`data/snapshots/`. Keys only matter if you want to re-run ingestion
-from scratch (live network calls) instead of reading what's there.
+Fill in `.env` with whichever keys you have — nothing below requires a
+key against the data already in `data/snapshots/`. Keys only matter for
+re-running ingestion from scratch.
 
 ## Quick start — see the CRI in under a minute
 
-Everything below reads from `data/snapshots/`, already committed to
-this repo. No network calls, no keys needed.
+Everything below reads from `data/snapshots/`, already committed. No
+network calls, no keys needed.
 
 ```bash
 uv run python core/risk.py
@@ -150,9 +130,9 @@ uv run python core/risk.py
 
 Prints the last 30 days of `CRI(chokepoint6)` (Strait of Hormuz) with
 its four components (`O` observed/AIS, `S` news signal, `E` extracted
-event severity, `X` exposure) and which ones had data on each day. To
-see the headline result — news leading AIS by about a week around the
-actual closure — inspect the Feb–Mar 2026 window:
+event severity, `X` exposure) and which had data on each day. For the
+headline result — news leading AIS by about a week around the actual
+closure — check the Feb-Mar 2026 window:
 
 ```bash
 uv run python -c "
@@ -164,9 +144,9 @@ with pd.option_context('display.max_rows', 40, 'display.width', 140):
 "
 ```
 
-Watch `S` spike to ~0.7–0.97 on 28 Feb–1 Mar while `O` is still 0 —
-AIS data (2–9 day lag by nature) doesn't confirm the collapse until
-`O` starts climbing on 2–4 Mar.
+`S` spikes to ~0.7-0.97 on 28 Feb-1 Mar while `O` is still 0 — AIS data
+(2-9 day lag by nature) doesn't confirm the collapse until `O` starts
+climbing on 2-4 Mar.
 
 ## Explore the digital twin
 
@@ -174,11 +154,10 @@ AIS data (2–9 day lag by nature) doesn't confirm the collapse until
 uv run python core/twin.py
 ```
 
-Builds the twin fresh from `data/reference/*.csv` + `data/snapshots/
-portwatch/` (fast, no network — `searoute`'s routing data ships with
-the package) and prints a sample path: a crude grade → the corridor it
-transits → an Indian discharge port → the refinery it feeds, with real
-maritime distances.
+Builds the twin from `data/reference/*.csv` + `data/snapshots/portwatch/`
+(no network — `searoute`'s routing data ships with the package) and
+prints a sample path: crude grade → corridor → Indian discharge port →
+refinery, with real maritime distances.
 
 ## Run a scenario
 
@@ -188,13 +167,12 @@ uv run python core/scenario.py
 
 Runs `run_scenario('chokepoint6', 1.0, 90)` — a full Hormuz closure for
 90 days — through the cascade: the procurement LP's reroute attempt,
-refinery run-cuts, product shortfall (PPAC's real yield mix), a price
-impact calibrated on the actual Feb–Mar 2026 $65→$113.57/bbl move, and
-India-macro impact (import bill, %GDP, CPI). Also runs a harder variant
-(sanctions-compliance mode, which blocks Russia/Venezuela substitution)
-that actually triggers a refinery shortfall — the base scenario finds
-enough non-Hormuz capacity to fully reroute, which is itself a real
-finding (matches what MoPNG reported actually happening).
+refinery run-cuts, product shortfall (PPAC's yield mix), a price impact
+calibrated on the actual Feb-Mar 2026 $65→$113.57/bbl move, and
+India-macro impact. Also runs a sanctions-compliance variant (blocks
+Russia/Venezuela substitution) that actually triggers a refinery
+shortfall — the base scenario finds enough non-Hormuz capacity to fully
+reroute, matching what MoPNG reported.
 
 ```bash
 uv run python core/procurement.py   # just the allocation LP, incl. the λ/μ mechanics
@@ -207,15 +185,14 @@ uv run python core/reserve.py       # SPR drawdown schedule under a supply gap
 uv run python core/backtest.py
 ```
 
-Fits a logistic CRI-to-disruption-probability calibration on the real
-Red Sea/Bab el-Mandeb crisis (Oct 2023–Feb 2024) and validates it
-out-of-sample on the real Hormuz closure (Feb–Aug 2026), reporting AUC
-and a reliability curve for h=7/14/30 days. Prints the real numbers
-(AUC 0.979 at h=7, 0.919 at h=14, undefined at h=30 once the closure
-makes almost every validation day a positive) plus the honest caveats:
-the fit window's CRI has O and S (GDELT was specifically backfilled for
-Oct 2023–Feb 2024 to cover it) but not E or X, while validation has all
-four; each corridor uses its own noise-floor-calibrated disruption
+Fits a logistic CRI-to-disruption-probability calibration on the Red
+Sea/Bab el-Mandeb crisis (Oct 2023-Feb 2024) and validates it
+out-of-sample on the Hormuz closure (Feb-Aug 2026), reporting AUC and a
+reliability curve for h=7/14/30 days (AUC 0.979 at h=7, 0.919 at h=14,
+undefined at h=30 once the closure makes almost every validation day a
+positive). Caveats: the fit window's CRI has O and S (GDELT was
+backfilled for Oct 2023-Feb 2024) but not E or X, while validation has
+all four; each corridor uses its own noise-floor-calibrated disruption
 threshold.
 
 ```bash
@@ -223,10 +200,10 @@ uv run python agent/provenance.py
 ```
 
 Runs the provenance validator against a grounded response (zero
-violations) and an adversarial one with a fabricated figure (a named,
-visible violation) — the agent loop runs every response through this
-before it reaches the user, and the dashboard's provenance badge shows
-the verdict.
+violations) and an adversarial one with a fabricated figure (a named
+violation) — the agent loop runs every response through this before it
+reaches the user, and the dashboard's provenance badge shows the
+verdict.
 
 ## Ask the agent
 
@@ -236,18 +213,17 @@ uv run python agent/loop.py "what happens if Bab el-Mandeb closes too?"
 
 Needs a live LLM key (`.env`, default provider `groq`; `LLM_PROVIDER=gemini`
 and `openai` also work). The loop calls tools from `agent/tools.py` — the
-only numeric path it's allowed to use — and prints how many of the numbers
-in its answer traced back to an actual tool result.
+only numeric path it's allowed to use — and prints how many of the
+numbers in its answer traced back to an actual tool result.
 
-Note that Groq's free tier caps at 200,000 tokens/**day**, separate from
-its per-minute limit. When that's exhausted the loop degrades gracefully
-rather than crashing, but you'll want `LLM_PROVIDER=gemini` to keep going.
+Groq's free tier caps at 200,000 tokens/day, separate from its
+per-minute limit. When that's exhausted the loop degrades gracefully
+rather than crashing; switch to `LLM_PROVIDER=gemini` to keep going.
 
-## Re-running ingestion (optional — only if you want fresh data)
+## Re-running ingestion (optional)
 
 Each script is independently runnable and idempotent. Run in this order
-if starting from nothing (later ones depend on earlier ones' snapshot
-output):
+if starting from nothing (later ones depend on earlier snapshot output):
 
 ```bash
 # 1. IMF PortWatch — AIS chokepoint + Indian port data. No key needed.
@@ -288,9 +264,9 @@ uv run python core/scenario.py               # full cascade (calls procurement.p
 
 ## Self-checks
 
-Every script has an offline, no-network `--self-check` that exercises
-its non-trivial logic (date normalization, baseline math, dedup,
-rate-limit handling, graph construction, LP correctness, ...):
+Every script has an offline, no-network `--self-check` covering its
+non-trivial logic (date normalization, baseline math, dedup, rate-limit
+handling, graph construction, LP correctness, ...):
 
 ```bash
 for f in ingest/portwatch.py ingest/gdelt.py ingest/gdelt_bigquery.py ingest/ppac.py \
@@ -337,58 +313,55 @@ Dockerfile, docker-compose.yml, web/Dockerfile
                  replacement; see "Or: Docker" above
 ```
 
-`PLAN.md` is the phase-by-phase build log with what's done, what's
-partial, and why. `CLAUDE.md` has the standing engineering rules this
-build follows (commit discipline, snapshot discipline, no-LLM-
-arithmetic, etc.) — worth reading if you're extending this.
+`PLAN.md` is the phase-by-phase build log: what's done, what's partial,
+and why. `CLAUDE.md` has the engineering rules the build follows
+(commit discipline, snapshot discipline, no-LLM-arithmetic, etc.) if
+you're extending this.
 
-## Known limitations (read before demoing)
+## Known limitations 
 
-- **PortWatch AIS data has a 2–9 day publish lag** and PortWatch itself
-  documents GPS jamming/AIS spoofing in the Hormuz conflict zone. Never
-  described as "real-time" anywhere in this build — it isn't.
-- **`E` (event severity) is thin.** Only 54 events were extracted
-  (MVP-capped run, Groq's daily token quota), 14 of them for Hormuz
-  specifically. `core/risk.py` reports `E` as genuinely missing (`NaN`,
-  renormalized weights) rather than substituting zero when data is
-  short, which is the correct behavior — but a fuller extraction run
-  (`EXTRACTOR_MAX_PER_CORRIDOR=0` in `.env`, needs a paid/higher-tier
-  LLM key or multiple days of free-tier quota) would sharpen `E`
-  materially.
-- **`ports.csv` and `sources.csv` have unverified rows by design.**
-  PPAC's tables don't cover port draft/SPM specs or global crude assay
-  values — those came from public industry knowledge, not a primary
-  source, and are flagged `verified=False` accordingly. Run `uv run
-  python ingest/validate_reference.py` to see the count and which file.
-- **The digital twin has no Reserve or Product nodes.** That's
-  deliberate scope discipline (see `core/twin.py`'s docstring) — Phase
-  5's `core/reserve.py` and `core/scenario.py` cover that ground
-  separately rather than duplicating it as twin nodes.
-- **The procurement LP's cost is a distance proxy, not real pricing.**
-  No FOB/freight/war-risk data is ingested (Tier 2, deferred), so the
-  anti-concentration safeguard is verified correct via synthetic
-  self-check but doesn't visibly bind on this build's real numbers — a
-  pure-distance model can't reproduce Russia's actual cost-competitiveness,
-  which comes from price discount, not proximity. `core/procurement.py`'s
-  own demo output explains this rather than hiding it.
-- **Scenario cascade demand/yield are simplifications.** Refinery
-  "demand" is nameplate capacity (India's refineries run at high
-  utilization, but this isn't the same as PPAC reporting an exact
-  throughput figure), and product shortfall uses one national-average
-  yield mix (PPAC Table 4.5) applied to every refinery rather than
-  refinery-specific yields. CPI impact assumes 1:1 crude-to-retail
-  pass-through, which ignores India's active fuel-excise-duty cushioning.
-  All disclosed in each output's `confidence`/`method` field, not just
-  here.
-- **The backtest calibrates on one crisis and validates on a different
-  one of a different character.** Bab el-Mandeb (Oct 2023–Feb 2024) was
-  a rerouting event — ships avoided the strait, but AIS transit counts
+- PortWatch AIS data has a 2-9 day publish lag, and PortWatch itself
+  documents GPS jamming/AIS spoofing in the Hormuz conflict zone. Not
+  described as "real-time" anywhere in this build.
+- `E` (event severity) is thin — only 54 events extracted (MVP-capped
+  run, Groq's daily token quota), 14 of them for Hormuz specifically.
+  `core/risk.py` reports `E` as missing (`NaN`, renormalized weights)
+  rather than substituting zero, which is the right call but a fuller
+  extraction run (`EXTRACTOR_MAX_PER_CORRIDOR=0` in `.env`, needs a
+  paid/higher-tier LLM key or several days of free-tier quota) would
+  sharpen it.
+- `ports.csv` and `sources.csv` have unverified rows by design. PPAC's
+  tables don't cover port draft/SPM specs or global crude assay values
+  — those came from public industry knowledge rather than a primary
+  source, and are flagged `verified=False`. Run
+  `uv run python ingest/validate_reference.py` for the count and file.
+- The digital twin has no Reserve or Product nodes — deliberate scope
+  discipline (see `core/twin.py`'s docstring); `core/reserve.py` and
+  `core/scenario.py` cover that ground separately.
+- The procurement LP's cost is a distance proxy, not real pricing. No
+  FOB/freight/war-risk data is ingested (deferred), so the
+  anti-concentration safeguard is verified via synthetic self-check but
+  doesn't visibly bind on this build's real numbers — a pure-distance
+  model can't reproduce Russia's actual cost-competitiveness, which
+  comes from price discount rather than proximity.
+  `core/procurement.py`'s own demo output explains this.
+- Scenario cascade demand/yield are simplifications. Refinery "demand"
+  is nameplate capacity (India's refineries run at high utilization, but
+  that's not the same as an exact PPAC throughput figure), and product
+  shortfall uses one national-average yield mix (PPAC Table 4.5) applied
+  to every refinery rather than refinery-specific yields. CPI impact
+  assumes 1:1 crude-to-retail pass-through, ignoring India's fuel-excise
+  cushioning. All disclosed in each output's `confidence`/`method`
+  field, not just here.
+- The backtest calibrates on one crisis and validates on a different one
+  of a different character. Bab el-Mandeb (Oct 2023-Feb 2024) was a
+  rerouting event — ships avoided the strait, but AIS transit counts
   never collapsed the way Hormuz's did — so the fit window's CRI has O
-  and S (GDELT specifically backfilled for Oct 2023–Feb 2024) but not E
-  (extraction never ran against it) or X, and uses a much lower
-  disruption threshold than the validation window. AUC is real and
-  strong at h=7/14 but undefined at h=30 (the validation window becomes
-  almost entirely positive-label once the closure is sustained), and the
-  reliability curve shows the calibration transferred from Bab
-  el-Mandeb's narrower CRI range is under-confident on Hormuz's wider
-  one — a genuine cross-corridor transfer limitation, not smoothed over.
+  and S (GDELT was backfilled for Oct 2023-Feb 2024) but not E
+  (extraction never ran against it) or X, and uses a lower disruption
+  threshold than the validation window. AUC is strong at h=7/14 but
+  undefined at h=30 (the validation window becomes almost entirely
+  positive-label once the closure is sustained), and the reliability
+  curve shows the calibration transferred from Bab el-Mandeb's narrower
+  CRI range under-confident on Hormuz's wider one — a real cross-corridor
+  transfer limitation.
