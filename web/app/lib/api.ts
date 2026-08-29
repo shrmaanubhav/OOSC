@@ -10,6 +10,11 @@ export async function get<T>(path: string): Promise<T> {
   return res.json();
 }
 
+/** Onset of the real Hormuz closure. Shared so the timeline's marker and the
+ *  map's sourcing regime agree -- the repo already carries several copies of
+ *  this date across ingest/ and core/, so don't add a fourth on the frontend. */
+export const CLOSURE_DATE = "2026-02-28";
+
 export type CriPoint = {
   date: string;
   CRI: number | null;

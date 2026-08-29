@@ -2,14 +2,7 @@
 
 import { ReactNode } from "react";
 
-export type PanelKey =
-  | "map"
-  | "risk"
-  | "procurement"
-  | "impact"
-  | "reserve"
-  | "backtest"
-  | "bypass";
+export type PanelKey = "map" | "risk" | "procurement" | "impact" | "reserve";
 
 const ITEMS: { key: PanelKey; label: string; icon: ReactNode }[] = [
   {
@@ -50,16 +43,6 @@ const ITEMS: { key: PanelKey; label: string; icon: ReactNode }[] = [
         strokeLinejoin="round"
       />
     ),
-  },
-  {
-    key: "backtest",
-    label: "Backtest",
-    icon: <path d="M3 3v18h18M8 16l4-6 3 3 4-7" strokeLinecap="round" strokeLinejoin="round" />,
-  },
-  {
-    key: "bypass",
-    label: "Bypass routes",
-    icon: <path d="M4 12h5l2-4 3 8 2-4h4M4 12a8 8 0 1 0 16 0" strokeLinecap="round" strokeLinejoin="round" />,
   },
 ];
 

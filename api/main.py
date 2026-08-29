@@ -82,7 +82,7 @@ def corridors() -> dict:
 
 
 @app.get("/api/cri/{corridor_id}")
-def cri(corridor_id: str, start: str = "2026-01-01", end: str | None = None) -> dict:
+def cri(corridor_id: str, start: str = "2025-01-01", end: str | None = None) -> dict:
     """Full daily CRI series with all four components -- drives the timeline
     chart and the map's time scrubber."""
     key = f"cri:{corridor_id}"

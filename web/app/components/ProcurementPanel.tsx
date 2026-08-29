@@ -86,13 +86,8 @@ export default function ProcurementPanel({
           </label>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <Stat label="allocated" value={`${fmt(data?.total_allocated_kbd, 0)} kbd`} />
-          <Stat
-            label="shortfall"
-            value={`${fmt(data?.total_shortfall_kbd, 0)} kbd`}
-            tone={data && data.total_shortfall_kbd > 0 ? "bad" : "ok"}
-          />
           <Stat
             label="largest supplier"
             value={top ? `${top[0]} ${(top[1] * 100).toFixed(0)}%` : "—"}

@@ -24,6 +24,17 @@ export const GLOSSARY: Record<string, string> = {
   LP: "Linear program - the solver that assigns each crude source to a refinery to minimise cost + risk.",
 };
 
+/** Which glossary entries are relevant on each sidebar tab, for the footer's
+ *  per-tab term strip. String-keyed (not PanelKey) so this file doesn't have
+ *  to import from SidebarNav just for a type. */
+export const TAB_TERMS: Record<string, (keyof typeof GLOSSARY)[]> = {
+  map: ["CRI", "kbd"],
+  risk: ["CRI", "O", "S", "E", "X"],
+  procurement: ["LP", "lambda", "kbd"],
+  impact: ["kbd"],
+  reserve: ["SPR", "MMT", "kbd-d"],
+};
+
 export function Term({ id, children }: { id: keyof typeof GLOSSARY; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const def = GLOSSARY[id];

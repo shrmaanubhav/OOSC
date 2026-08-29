@@ -49,13 +49,9 @@ export default function ImpactWaterfall({
       ]
     : [];
 
-  const runCutCount = Object.keys(data?.run_cuts ?? {}).length;
-
   const stages = data
     ? [
         { label: "Shock", value: `${severity.toFixed(2)}× severity` },
-        { label: "Reroute", value: `${fmt(data.total_shortfall_kbd, 0)} kbd unmet` },
-        { label: "Refinery cuts", value: `${runCutCount} refineries` },
         { label: "Price", value: `+$${fmt(delta, 1)}/bbl` },
         { label: "India macro", value: `${fmt(data.macro.cpi_impact_pct * 100, 2)} pp CPI` },
       ]
@@ -78,7 +74,7 @@ export default function ImpactWaterfall({
             ))}
           </span>
         ) : (
-          "Corridor shock → reroute attempt → refinery cuts → price → India macro"
+          "Corridor shock → price → India macro"
         )
       }
       asOf={data ? `severity ${severity.toFixed(2)}` : undefined}
@@ -176,17 +172,7 @@ export default function ImpactWaterfall({
           </ResponsiveContainer>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <Metric
-            label="shortfall"
-            value={`${fmt(data?.total_shortfall_kbd, 0)} kbd`}
-            tone={data && data.total_shortfall_kbd > 0 ? "bad" : "ok"}
-          />
-          <Metric
-            label="refineries cut"
-            value={`${runCutCount}`}
-            tone={runCutCount > 0 ? "bad" : "ok"}
-          />
+        <div className="grid grid-cols-2 gap-2">
           <Metric
             label="import bill Δ (yr)"
             value={`$${fmt((data?.macro.import_bill_delta_annualized_usd ?? 0) / 1e9, 1)}B`}

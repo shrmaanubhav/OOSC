@@ -51,7 +51,10 @@ Two things to know:
 Real AIS data from IMF PortWatch shows the Hormuz collapse. On top of
 that sits a Corridor Risk Index (CRI) that combines AIS with GDELT news
 volume/tone and LLM-extracted events; news turns out to lead AIS by
-about a week, which lines up with the actual timeline.
+about a week, which lines up with the actual timeline. The dashboard's
+Risk index chart shows this back to 2025-01-01, so the pre-war baseline
+(CRI ~14) and the closure (CRI ~69) are both on screen at once, not just
+the closure in isolation.
 
 There's a digital twin (crude sources -> corridor -> Indian port ->
 refinery) built from PPAC's refinery capacity data, plus a procurement
@@ -59,6 +62,10 @@ LP that allocates crude to refineries with an anti-concentration
 safeguard, a scenario cascade that turns a corridor shock into
 run-cuts / product shortfalls / price impact / India-macro numbers
 (import bill, %GDP, CPI), and a reserve drawdown LP for days-of-cover.
+The flow map's arcs and the procurement solve they're drawn from switch
+regime at the scrubbed date too — dragging across 28 Feb 2026 shows
+crude actually leaving Hormuz for Bab el-Mandeb/Suez/Malacca/Cape,
+instead of one solve pinned to every date.
 
 `core/backtest.py` calibrates the CRI against a different crisis (Red
 Sea/Bab el-Mandeb, Oct 2023-Feb 2024) and validates out-of-sample
@@ -67,7 +74,76 @@ response can't trace back to a tool result. `agent/loop.py` is the
 agent itself, and `web/` is the dashboard that runs all of this
 offline.
 
+The dashboard itself is five scrubbable/interactive panels (Flow map,
+Risk index, Reallocation, Impact cascade, Strategic reserve) behind a
+left-hand tab rail, with the Analyst chat docked on the right at all
+times. Backtest results and bypass-route data are reference material,
+not something you scrub — they're one click away from the footer
+instead of taking up a permanent tab. That same footer also explains
+whatever jargon (CRI, λ, kbd, SPR...) is relevant to whichever tab is
+currently open, keyed off the same glossary the in-panel tooltips use.
+
 Phase 9 (demo rehearsal + polish) isn't done yet.
+
+## For judges — quick answers
+
+Four questions this build gets asked a lot, with exactly where to verify
+each answer.
+
+**Where's the data actually from?**
+
+| Source | What it provides | Live/real? |
+|---|---|---|
+| [IMF PortWatch](https://portwatch.imf.org/) | Daily AIS ship-tracking per chokepoint/port, 2019-2026 | Real public API, no key. 2-9 day publish lag, documents AIS spoofing/GPS jamming in the conflict zone — not real-time, disclosed everywhere it's used |
+| [GDELT](https://www.gdeltproject.org/) (via BigQuery) | News coverage volume + tone per corridor | Real, live-queryable. Backfilled for the windows this build needs (see `data/reference/corridor_queries.yaml`) |
+| PPAC Ready Reckoner | Refinery capacity, crude throughput, Indian Basket price | Real Government of India PDF (`ingest/ppac.py`), parsed once and snapshotted |
+| OFAC SDN list via OpenSanctions | Sanctioned-vessel counts (439 Russia-program, 60 Venezuela-program, pulled 2026-08-20) | Real, live pull (`ingest/sanctions.py`) |
+| `data/reference/*.csv` (chokepoint capacities, SPR, bypass routes) | Reference figures the models run on | Hand-cited — every number has an inline source comment and a `verified=True/False` flag; run `uv run python ingest/validate_reference.py` to see the count |
+
+Everything is frozen to `data/snapshots/` before the demo runs — the
+dashboard makes **zero network calls** except the Analyst chat panel.
+Full caveats are in `docs/methodology.md` and the dashboard's own
+"methodology & limitations" toggle.
+
+**What have we backtested, and what did we find?**
+
+Fit a disruption-probability calibration on one real crisis (Bab
+el-Mandeb/Red Sea, Oct 2023-Feb 2024), then validated it **out-of-sample**
+on a different real crisis (Hormuz, Feb-Aug 2026) — data the fit step
+never saw. Result: **AUC 0.979 at 7 days, 0.919 at 14 days** (undefined
+at 30 days — once the closure is sustained, almost every validation day
+is a "disruption" day, so there's no negative class left to separate
+against; that's a property of the data, not a broken score). Every
+asymmetry between the two windows (the fit window has a thinner CRI —
+no LLM-extracted events, no exposure figure) is disclosed rather than
+smoothed over. Run `uv run python core/backtest.py`, or click "ⓘ
+backtest results" in the dashboard footer.
+
+**Is there a trained model?**
+
+Yes, one — and it's deliberately small and fully inspectable, not a
+black box. `core/backtest.py` fits a **2-parameter logistic regression**
+(`P(disruption) = sigmoid(b0 + b1·CRI/100)`, hand-rolled Newton-Raphson,
+no sklearn/PyTorch) mapping CRI to disruption probability. The question
+it answers is "does CRI itself carry real predictive signal", not
+"can we fit something fancy" — the backtest above is the evidence.
+Everything else in `core/` (the CRI composite, the procurement LP, the
+cascade, the reserve drawdown) is deterministic computation — a
+weighted formula or a linear program, not a trained model.
+
+**How does the AI chat panel answer, and how do we stop it hallucinating?**
+
+`agent/loop.py` is a bounded tool-calling loop (max 6 steps): the LLM
+can only pull numbers by calling real functions in `agent/tools.py`
+(CRI lookup, scenario solve, procurement solve, reserve solve, backtest
+results, sanctions evidence, bypass routes...) — it never computes or
+invents a figure itself (CLAUDE.md rule 4, enforced in code, not just
+prompted). Every response is then run through `agent/provenance.py`,
+which checks that every number in the answer text traces back to an
+actual tool result before it reaches the user; a violation is shown,
+not hidden, via the dashboard's provenance badge. The LLM provider is
+swappable (`agent/llm.py` — Groq default, OpenAI, Gemini) and only this
+one panel touches the network.
 
 ## Run the dashboard
 
@@ -87,8 +163,13 @@ Open http://localhost:3000. Everything except the Analyst panel works
 offline — the backend reads only from `data/snapshots/`, and the map's
 coastlines are a local GeoJSON rather than a tile server.
 
-Two controls to try in a demo:
+Three controls to try in a demo:
 
+- **The Flow map's date scrubber**, dragged across 28 Feb 2026 — arcs
+  swing from Hormuz to Bab el-Mandeb/Suez/Malacca/Cape mid-drag, with a
+  per-corridor kbd readout under the map quantifying the shift. This is
+  two solves (pre/post-closure), not an animation — the underlying LP
+  is a cliff, not a ramp, so nothing in between is invented.
 - **λ (risk aversion)** in the procurement panel re-solves the LP
   server-side on every drag and shifts allocation away from high-CRI
   corridors.

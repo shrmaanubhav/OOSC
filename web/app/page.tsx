@@ -6,11 +6,13 @@ import BacktestPanel from "./components/BacktestPanel";
 import CriTimeline from "./components/CriTimeline";
 import FlowMap from "./components/FlowMap";
 import ImpactWaterfall from "./components/ImpactWaterfall";
+import Modal from "./components/Modal";
 import OnboardingStrip from "./components/OnboardingStrip";
 import Panel from "./components/Panel";
 import ProcurementPanel from "./components/ProcurementPanel";
 import ReserveGauge from "./components/ReserveGauge";
 import SidebarNav, { PanelKey } from "./components/SidebarNav";
+import { GLOSSARY, TAB_TERMS } from "./components/Term";
 import {
   BacktestResult,
   BypassRoutes,
@@ -61,8 +63,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     Promise.all([
-      get<CriSeries>("/api/cri/chokepoint6?start=2026-01-01"),
-      get<CriSeries>("/api/cri/chokepoint4?start=2026-01-01"),
+      // No ?start= -- the API default is the window, so the two can't drift.
+      // All five corridors, not just the two with GDELT queries: chokepoint1/5/7
+      // still have real AIS (O), so they colour the map dots and arcs instead of
+      // rendering grey-for-no-data and reading as "no flow here".
+      get<CriSeries>("/api/cri/chokepoint6"),
+      get<CriSeries>("/api/cri/chokepoint4"),
+      get<CriSeries>("/api/cri/chokepoint1"),
+      get<CriSeries>("/api/cri/chokepoint5"),
+      get<CriSeries>("/api/cri/chokepoint7"),
       get<TwinGraph>("/api/twin"),
       get<Corridors>("/api/corridors"),
       get<BypassRoutes>("/api/bypass_routes"),
@@ -72,8 +81,14 @@ export default function Dashboard() {
       get<DisruptionProbability>("/api/probability/chokepoint4?horizon_days=7"),
       get<ProcurementResult>("/api/procurement?severity=0&lambda_risk=0"),
     ])
-      .then(([c6, c4, tw, co, by, bt, refs, p6, p4, procBase]) => {
-        setCri({ chokepoint6: c6, chokepoint4: c4 });
+      .then(([c6, c4, c1, c5, c7, tw, co, by, bt, refs, p6, p4, procBase]) => {
+        setCri({
+          chokepoint6: c6,
+          chokepoint4: c4,
+          chokepoint1: c1,
+          chokepoint5: c5,
+          chokepoint7: c7,
+        });
         setProbability({ chokepoint6: p6, chokepoint4: p4 });
         setTwin(tw);
         setCorridors(co);
@@ -141,6 +156,9 @@ export default function Dashboard() {
   // "map" default per the demo brief: the flow map is the most orienting
   // entry point, and it's what the header's corridor chips already point at.
   const [activePanel, setActivePanel] = useState<PanelKey>("map");
+  // Backtest / bypass routes are reference material, not something scrubbed
+  // or re-solved -- footer links into a modal instead of a permanent sidebar tab.
+  const [openModal, setOpenModal] = useState<"backtest" | "bypass" | null>(null);
 
   return (
     <main className="h-screen flex flex-col p-4 lg:p-5 max-w-[1900px] mx-auto w-full">
@@ -220,10 +238,6 @@ export default function Dashboard() {
           </p>
         </div>
       )}
-
-      <div className="shrink-0">
-        <OnboardingStrip />
-      </div>
 
       {showMethodology && (
         <section className="panel mt-0 mb-4 px-4 py-3 border-[var(--accent)]/40 shrink-0">
@@ -305,6 +319,7 @@ export default function Dashboard() {
             <FlowMap
               twin={twin}
               allocation={proc?.allocation ?? []}
+              baselineAllocation={procBaseline?.allocation ?? []}
               cri={cri}
               cursorDate={cursorDate}
               onCursorChange={onCursorChange}
@@ -349,42 +364,6 @@ export default function Dashboard() {
               loading={resLoading}
             />
           )}
-          {activePanel === "backtest" && <BacktestPanel data={backtest} />}
-          {activePanel === "bypass" && (
-            <Panel
-              title="Bypass routes"
-              subtitle="And where their cargo actually ends up"
-              className="min-h-[440px] h-full"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {(bypass?.routes ?? []).map((r) => {
-                  const coupled = r.discharge_corridor !== "none";
-                  return (
-                    <div
-                      key={r.route_name}
-                      className="bg-[var(--panel-2)] border rounded-md px-3 py-2.5"
-                      style={{ borderColor: coupled ? "#f0b42955" : "var(--border)" }}
-                    >
-                      <div className="text-[12.5px] leading-tight">{r.route_name}</div>
-                      <div className="mono text-[15px] mt-1.5">
-                        {r.capacity_kbd == null ? "—" : `${fmt(r.capacity_kbd, 0)} kbd`}
-                      </div>
-                      <div className="asof mt-1.5 leading-snug">
-                        {coupled ? (
-                          <span className="text-[var(--warn)]">
-                            ⚠ discharges via {r.discharge_corridor} — not a clean bypass
-                          </span>
-                        ) : (
-                          <span className="text-[var(--ok)]">✓ outside all modeled corridors</span>
-                        )}
-                        <div className="mt-0.5">{r.status}</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Panel>
-          )}
         </div>
 
         <div className="xl:w-[400px] w-full xl:h-full shrink-0">
@@ -392,17 +371,91 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div className="shrink-0 mt-3">
+        <OnboardingStrip />
+      </div>
+
       <footer className="asof mt-3 leading-relaxed border-t border-[var(--border)] pt-2 shrink-0">
+        {/* Terms used on the currently-focused tab, so a viewer doesn't have to
+            hover every dotted-underline word to find out what it means. */}
+        {(TAB_TERMS[activePanel] ?? []).length > 0 && (
+          <p className="mb-1.5">
+            <b className="text-[var(--foreground)]">Terms on this tab:</b>{" "}
+            {TAB_TERMS[activePanel].map((id, i) => (
+              <span key={id}>
+                {i > 0 && " · "}
+                <span className="text-[var(--foreground)]">{id}</span> — {GLOSSARY[id]}
+              </span>
+            ))}
+          </p>
+        )}
         Full methodology and limitations: click{" "}
         <button
           onClick={() => setShowMethodology(true)}
           className="underline decoration-dotted text-[var(--accent)] hover:text-[var(--foreground)]"
         >
           ⓘ methodology &amp; limitations
-        </button>{" "}
-        above. Current CRI(Hormuz) ={" "}
+        </button>
+        {" · "}
+        <button
+          onClick={() => setOpenModal("backtest")}
+          className="underline decoration-dotted text-[var(--accent)] hover:text-[var(--foreground)]"
+        >
+          ⓘ backtest results
+        </button>
+        {" · "}
+        <button
+          onClick={() => setOpenModal("bypass")}
+          className="underline decoration-dotted text-[var(--accent)] hover:text-[var(--foreground)]"
+        >
+          ⓘ bypass routes
+        </button>
+        . Current CRI(Hormuz) ={" "}
         <span className="mono">{criNow == null ? "—" : criNow.toFixed(1)}</span> as of {cursorDate}.
       </footer>
+
+      {openModal === "backtest" && (
+        <Modal onClose={() => setOpenModal(null)}>
+          <BacktestPanel data={backtest} />
+        </Modal>
+      )}
+      {openModal === "bypass" && (
+        <Modal onClose={() => setOpenModal(null)}>
+          <Panel
+            title="Bypass routes"
+            subtitle="And where their cargo actually ends up"
+            className="min-h-[440px]"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {(bypass?.routes ?? []).map((r) => {
+                const coupled = r.discharge_corridor !== "none";
+                return (
+                  <div
+                    key={r.route_name}
+                    className="bg-[var(--panel-2)] border rounded-md px-3 py-2.5"
+                    style={{ borderColor: coupled ? "#f0b42955" : "var(--border)" }}
+                  >
+                    <div className="text-[12.5px] leading-tight">{r.route_name}</div>
+                    <div className="mono text-[15px] mt-1.5">
+                      {r.capacity_kbd == null ? "—" : `${fmt(r.capacity_kbd, 0)} kbd`}
+                    </div>
+                    <div className="asof mt-1.5 leading-snug">
+                      {coupled ? (
+                        <span className="text-[var(--warn)]">
+                          ⚠ discharges via {r.discharge_corridor} — not a clean bypass
+                        </span>
+                      ) : (
+                        <span className="text-[var(--ok)]">✓ outside all modeled corridors</span>
+                      )}
+                      <div className="mt-0.5">{r.status}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Panel>
+        </Modal>
+      )}
     </main>
   );
 }
